@@ -1,0 +1,37 @@
+---
+kind: pipeline
+name: linux-amd64
+type: docker
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: test
+    image: golang:1.14
+    commands:
+      - go mod download
+      - go vet ./...
+      - go test -v ./...
+
+  - name: build
+    image: plugins/docker
+    settings:
+      repo: registry.megpoid.xyz/drone-kaniko
+      tags: latest
+      mirror: http://mirror:5000
+      build_args:
+        - DRONE_COMMIT_SHA=${DRONE_COMMIT_SHA}
+      registry: registry.megpoid.xyz
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+    when:
+      event:
+        - push
+
+trigger:
+  branch:
+    - master

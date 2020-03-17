@@ -1,8 +1,12 @@
 package kaniko
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,6 +51,19 @@ type Settings struct {
 	WhitelistVarRun         bool
 	// other args
 	BuildArgsFromEnv []string
+	ForceCache       bool
+	Username         string
+	Password         string
+	Registry         string
+	WarmerImages     []string
+}
+
+type authConfig struct {
+	Auths map[string]authEntry `json:"auths"`
+}
+
+type authEntry struct {
+	Auth string `json:"auth"`
 }
 
 func (p *pluginImpl) Validate() error {
@@ -59,15 +76,21 @@ func (p *pluginImpl) Validate() error {
 			return fmt.Errorf("invalid registry-certificate: %s", entry)
 		}
 	}
+
 	return nil
 }
 
 func (p *pluginImpl) Execute() error {
+	if err := generateAuthFile(&p.settings); err != nil {
+		return err
+	}
+
 	addProxyBuildArgs(&p.settings)
 
 	var cmds []*exec.Cmd
-	cmds = append(cmds, commandVersion())          // kaniko version
-	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
+	cmds = append(cmds, commandVersion())           // kaniko version
+	cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+	cmds = append(cmds, commandBuild(&p.settings))  // kaniko build
 
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout
@@ -189,6 +212,29 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	return exec.Command(kanikoExecutor, args...)
 }
 
+func commandWarmer(settings *Settings) *exec.Cmd {
+	var args []string
+	if settings.CacheDir != "" {
+		args = append(args, "--cache-dir", settings.CacheDir)
+	}
+	if settings.CacheTTL != 0 {
+		args = append(args, "--cache-ttl", settings.CacheTTL.String())
+	}
+	if settings.ForceCache {
+		args = append(args, "--force")
+	}
+	if settings.LogFormat != "" {
+		args = append(args, "--log-format", settings.LogFormat)
+	}
+	if settings.Verbosity != "" {
+		args = append(args, "--verbosity", settings.Verbosity)
+	}
+	for _, entry := range settings.WarmerImages {
+		args = append(args, "--image", entry)
+	}
+	return exec.Command(kanikoWarmer, args...)
+}
+
 func trace(cmd *exec.Cmd) {
 	_, _ = fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
 }
@@ -234,4 +280,35 @@ func hasProxyBuildArg(settings *Settings, key string) bool {
 	}
 
 	return false
+}
+
+func generateAuthFile(settings *Settings) error {
+	if settings.Username != "" && settings.Password != "" {
+		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
+		var registry string
+		if settings.Registry != "" {
+			registry = settings.Registry
+		} else {
+			registry = "https://index.docker.io/v1/"
+		}
+
+		auth := authConfig{
+			Auths: map[string]authEntry{
+				registry: {Auth: encodedPassword},
+			},
+		}
+
+		data, err := json.MarshalIndent(auth, "", "\t")
+		if err != nil {
+			return err
+		}
+
+		configJson := "/kaniko/.docker/config.json"
+		log.Printf("Generating auth info in %s", configJson)
+		err = ioutil.WriteFile(configJson, data, 0600)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

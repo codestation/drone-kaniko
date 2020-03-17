@@ -160,7 +160,17 @@ func settingsFlags() []cli.Flag {
 			Usage:   "whitelist /var/run/*",
 			EnvVars: []string{"PLUGIN_WHITELIST_VAR_RUN"},
 		},
-
+		// other args
+		&cli.StringSliceFlag{
+			Name:    "warmer-images",
+			Usage:   "cache from repo",
+			EnvVars: []string{"PLUGIN_WARMER_IMAGES", "PLUGIN_CACHE_FROM"},
+		},
+		&cli.BoolFlag{
+			Name:    "force-cache",
+			Usage:   "Force cache overwritting",
+			EnvVars: []string{"PLUGIN_FORCE_CACHE"},
+		},
 		&cli.StringSliceFlag{
 			Name:    "args-from-env",
 			Usage:   "build args",
@@ -192,6 +202,21 @@ func settingsFlags() []cli.Flag {
 			Name:    "password",
 			Usage:   "registry password",
 			EnvVars: []string{"PLUGIN_PASSWORD,DOCKER_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:    "registry",
+			Usage:   "docker registry",
+			EnvVars: []string{"PLUGIN_REGISTRY"},
+		},
+		&cli.StringFlag{
+			Name:    "repo",
+			Usage:   "docker repo",
+			EnvVars: []string{"PLUGIN_REPO"},
+		},
+		&cli.StringFlag{
+			Name:    "mirror",
+			Usage:   "docker repo",
+			EnvVars: []string{"PLUGIN_MIRROR"},
 		},
 	}
 }
@@ -232,5 +257,10 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		WhitelistVarRun:         ctx.Bool("whitelist-var-run"),
 		// other args
 		BuildArgsFromEnv: ctx.StringSlice("build-args-from-env"),
+		ForceCache:       ctx.Bool("force-cache"),
+		Username:         ctx.String("username"),
+		Password:         ctx.String("password"),
+		Registry:         ctx.String("registry"),
+		WarmerImages:     ctx.StringSlice("warmer-images"),
 	}
 }
