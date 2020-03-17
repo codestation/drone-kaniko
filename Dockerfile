@@ -13,7 +13,7 @@ RUN go build -o release/drone-kaniko \
    -ldflags "-w -s \
    -X main.version=${DRONE_COMMIT_SHA:0:8}" \
    -tags netgo \
-   cmd/drone-kaniko
+   ./cmd/drone-kaniko
 
 FROM gcr.io/kaniko-project/executor:debug-23e3fe748663c191bb4e00aa3ac72cd4d22e608c
 
