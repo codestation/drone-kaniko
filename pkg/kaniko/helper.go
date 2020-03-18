@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	tags "github.com/drone-plugins/drone-docker"
@@ -103,18 +103,16 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 	}
 
 	if settings.RegistryMirror != "" {
-		u, err := url.Parse(settings.RegistryMirror)
-		if err != nil {
-			log.Printf("Invalid registry mirror URL: %s", settings.RegistryMirror)
-			return false
-		}
-		// remove scheme from url
-		if u.Scheme != "" {
-			if u.Scheme == "http" {
+		re := regexp.MustCompile("^(http?)://(.*)")
+		matches := re.FindStringSubmatch(settings.RegistryMirror)
+		if len(matches) > 2 {
+
+			if matches[1] == "http" {
+				// mark as insecure
 				settings.InsecurePull = true
 			}
-			u.Scheme = ""
-			settings.RegistryMirror = u.String()
+			// remove scheme from url
+			settings.RegistryMirror = matches[2]
 		}
 	}
 	if settings.TagsAuto {
