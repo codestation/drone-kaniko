@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -101,6 +102,21 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 		settings.Verbosity = "debug"
 	}
 
+	if settings.RegistryMirror != "" {
+		u, err := url.Parse(settings.RegistryMirror)
+		if err != nil {
+			log.Printf("Invalid registry mirror URL: %s", settings.RegistryMirror)
+			return false
+		}
+		// remove scheme from url
+		if u.Scheme != "" {
+			if u.Scheme == "http" {
+				settings.InsecurePull = true
+			}
+			u.Scheme = ""
+			settings.RegistryMirror = u.String()
+		}
+	}
 	if settings.TagsAuto {
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
 			settings.Tags = tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
