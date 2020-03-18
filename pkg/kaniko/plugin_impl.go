@@ -94,6 +94,10 @@ func (p *pluginImpl) Execute() error {
 	addProxyBuildArgs(&p.settings)
 	addArgsFromEnv(&p.settings)
 
+	if p.settings.Cache {
+		p.settings.Images = append(p.settings.Images, p.settings.Destinations...)
+	}
+
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion())           // kaniko version
 	if len(p.settings.Images) > 0 {
