@@ -3,6 +3,7 @@ package kaniko
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,6 +16,14 @@ import (
 	tags "github.com/drone-plugins/drone-docker"
 	"github.com/drone-plugins/drone-plugin-lib/drone"
 )
+
+type authConfig struct {
+	Auths map[string]authEntry `json:"auths"`
+}
+
+type authEntry struct {
+	Auth string `json:"auth"`
+}
 
 func trace(cmd *exec.Cmd) {
 	_, _ = fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
@@ -94,7 +103,7 @@ func addArgsFromEnv(settings *Settings) {
 	}
 }
 
-func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool {
+func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error {
 	if settings.Insecure {
 		settings.InsecurePull = true
 		settings.InsecurePush = true
@@ -103,27 +112,32 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 		settings.Verbosity = "debug"
 	}
 
-	if settings.RegistryMirror != "" {
+	if settings.Mirror != "" {
+		if settings.RegistryMirror != "" {
+			return errors.New("mirror and registry-mirror cannot be set at the same time")
+		}
 		re := regexp.MustCompile("^(http?)://(.*)")
-		matches := re.FindStringSubmatch(settings.RegistryMirror)
+		matches := re.FindStringSubmatch(settings.Mirror)
 		if len(matches) > 2 {
-
 			if matches[1] == "http" {
 				// mark as insecure
 				settings.InsecurePull = true
 			}
 			// remove scheme from url
 			settings.RegistryMirror = matches[2]
+		} else {
+			return fmt.Errorf("invalid mirror: %s", settings.Mirror)
 		}
 	}
+
 	if settings.TagsAuto {
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
 			settings.Tags = tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
 		} else {
 			log.Printf("Skipping automated build for %s", pipeline.Commit.Ref)
-			return false
 		}
 	}
+
 	if settings.Repo != "" {
 		for _, entry := range settings.Tags {
 			dest := fmt.Sprintf("%s:%s", settings.Repo, entry)
@@ -131,7 +145,7 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 		}
 	}
 
-	return true
+	return nil
 }
 
 func generateLabelSchemas(settings *Settings, pipeline *drone.Pipeline) {

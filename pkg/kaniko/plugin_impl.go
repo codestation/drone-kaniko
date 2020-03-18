@@ -60,17 +60,13 @@ type Settings struct {
 	Debug            bool
 	Insecure         bool
 	LabelSchema      []string
-}
-
-type authConfig struct {
-	Auths map[string]authEntry `json:"auths"`
-}
-
-type authEntry struct {
-	Auth string `json:"auth"`
+	Mirror           string
 }
 
 func (p *pluginImpl) Validate() error {
+	if err := enableCompatibilityMode(&p.settings, &p.pipeline); err != nil {
+		return err
+	}
 	if p.settings.NoPush && len(p.settings.Destinations) == 0 {
 		return errors.New("must provide either no-push or at least one destination")
 	}
@@ -81,17 +77,11 @@ func (p *pluginImpl) Validate() error {
 		}
 	}
 
-	return nil
-}
-
-func (p *pluginImpl) Execute() error {
-	if !enableCompatibilityMode(&p.settings, &p.pipeline) {
-		// nothing to build
-		return nil
-	}
 	if err := generateAuthFile(&p.settings); err != nil {
-		return err
+		return fmt.Errorf("failed to generate docker auth file: %w", err)
 	}
+
+	// set defaults
 	generateLabelSchemas(&p.settings, &p.pipeline)
 	addProxyBuildArgs(&p.settings)
 	addArgsFromEnv(&p.settings)
@@ -109,6 +99,10 @@ func (p *pluginImpl) Execute() error {
 		}
 	}
 
+	return nil
+}
+
+func (p *pluginImpl) Execute() error {
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion()) // kaniko version
 	if len(p.settings.Images) > 0 {
@@ -136,7 +130,6 @@ func commandVersion() *exec.Cmd {
 
 func commandBuild(settings *Settings) *exec.Cmd {
 	var args []string
-
 	for _, entry := range settings.BuildArgs {
 		args = append(args, "--build-arg", entry)
 	}
@@ -230,7 +223,6 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.WhitelistVarRun {
 		args = append(args, "--whitelist-var-run")
 	}
-
 	return exec.Command(kanikoExecutor, args...)
 }
 
@@ -245,14 +237,14 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	if settings.ForceCache {
 		args = append(args, "--force")
 	}
+	for _, entry := range settings.Images {
+		args = append(args, "--image", entry)
+	}
 	if settings.LogFormat != "" {
 		args = append(args, "--log-format", settings.LogFormat)
 	}
 	if settings.Verbosity != "" {
 		args = append(args, "--verbosity", settings.Verbosity)
-	}
-	for _, entry := range settings.Images {
-		args = append(args, "--image", entry)
 	}
 	return exec.Command(kanikoWarmer, args...)
 }
