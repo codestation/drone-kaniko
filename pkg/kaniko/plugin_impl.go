@@ -1,12 +1,8 @@
 package kaniko
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,7 +26,7 @@ type Settings struct {
 	Dockerfile              string
 	Force                   bool
 	ImageNameWithDigestFile string
-	Insecure                bool
+	InsecurePush            bool
 	InsecurePull            bool
 	InsecureRegistries      []string
 	Labels                  []string
@@ -49,13 +45,20 @@ type Settings struct {
 	Target                  string
 	Verbosity               string
 	WhitelistVarRun         bool
+	// auth args
+	Registry string
+	Username string
+	Password string
 	// other args
 	BuildArgsFromEnv []string
 	ForceCache       bool
-	Username         string
-	Password         string
-	Registry         string
+	Tags             []string
+	TagsAuto         bool
+	TagsSuffix       string
 	WarmerImages     []string
+	Repo             string
+	Debug            bool
+	Insecure         bool
 }
 
 type authConfig struct {
@@ -81,11 +84,15 @@ func (p *pluginImpl) Validate() error {
 }
 
 func (p *pluginImpl) Execute() error {
+	if !enableCompatibilityMode(&p.settings, &p.pipeline) {
+		// nothing to build
+		return nil
+	}
 	if err := generateAuthFile(&p.settings); err != nil {
 		return err
 	}
-
 	addProxyBuildArgs(&p.settings)
+	addArgsFromEnv(&p.settings)
 
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion())           // kaniko version
@@ -102,6 +109,7 @@ func (p *pluginImpl) Execute() error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -112,9 +120,6 @@ func commandVersion() *exec.Cmd {
 func commandBuild(settings *Settings) *exec.Cmd {
 	var args []string
 
-	for _, entry := range settings.BuildArgsFromEnv {
-		addProxyValue(settings, entry)
-	}
 	for _, entry := range settings.BuildArgs {
 		args = append(args, "--build-arg", entry)
 	}
@@ -151,7 +156,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.ImageNameWithDigestFile != "" {
 		args = append(args, "--image-name-with-digest-file", settings.ImageNameWithDigestFile)
 	}
-	if settings.Insecure {
+	if settings.InsecurePush {
 		args = append(args, "--insecure")
 	}
 	if settings.InsecurePull {
@@ -233,82 +238,4 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 		args = append(args, "--image", entry)
 	}
 	return exec.Command(kanikoWarmer, args...)
-}
-
-func trace(cmd *exec.Cmd) {
-	_, _ = fmt.Fprintf(os.Stdout, "+ %s\n", strings.Join(cmd.Args, " "))
-}
-
-// helper function to add proxy values from the environment
-func addProxyBuildArgs(settings *Settings) {
-	addProxyValue(settings, "http_proxy")
-	addProxyValue(settings, "https_proxy")
-	addProxyValue(settings, "no_proxy")
-}
-
-// helper function to add the upper and lower case version of a proxy value.
-func addProxyValue(settings *Settings, key string) {
-	value := getProxyValue(key)
-
-	if len(value) > 0 && !hasProxyBuildArg(settings, key) {
-		settings.BuildArgs = append(settings.BuildArgs, fmt.Sprintf("%s=%s", key, value))
-		settings.BuildArgs = append(settings.BuildArgs, fmt.Sprintf("%s=%s", strings.ToUpper(key), value))
-	}
-}
-
-// helper function to get a proxy value from the environment.
-//
-// assumes that the upper and lower case versions of are the same.
-func getProxyValue(key string) string {
-	value := os.Getenv(key)
-
-	if len(value) > 0 {
-		return value
-	}
-
-	return os.Getenv(strings.ToUpper(key))
-}
-
-// helper function that looks to see if a proxy value was set in the build args.
-func hasProxyBuildArg(settings *Settings, key string) bool {
-	keyUpper := strings.ToUpper(key)
-
-	for _, s := range settings.BuildArgs {
-		if strings.HasPrefix(s, key) || strings.HasPrefix(s, keyUpper) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func generateAuthFile(settings *Settings) error {
-	if settings.Username != "" && settings.Password != "" {
-		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
-		var registry string
-		if settings.Registry != "" {
-			registry = settings.Registry
-		} else {
-			registry = "https://index.docker.io/v1/"
-		}
-
-		auth := authConfig{
-			Auths: map[string]authEntry{
-				registry: {Auth: encodedPassword},
-			},
-		}
-
-		data, err := json.MarshalIndent(auth, "", "\t")
-		if err != nil {
-			return err
-		}
-
-		configJson := "/kaniko/.docker/config.json"
-		log.Printf("Generating auth info in %s", configJson)
-		err = ioutil.WriteFile(configJson, data, 0600)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

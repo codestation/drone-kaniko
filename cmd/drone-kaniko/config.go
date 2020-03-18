@@ -38,7 +38,7 @@ func settingsFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:    "cleanup",
 			Usage:   "cleanup",
-			EnvVars: []string{"PLUGIN_CLEANUP"},
+			EnvVars: []string{"PLUGIN_CLEANUP", "PLUGIN_PURGE"},
 		},
 		&cli.StringFlag{
 			Name:    "context",
@@ -71,9 +71,9 @@ func settingsFlags() []cli.Flag {
 			EnvVars: []string{"PLUGIN_IMAGE_NAME_WITH_DIGEST_FILE"},
 		},
 		&cli.BoolFlag{
-			Name:    "insecure",
-			Usage:   "insecure",
-			EnvVars: []string{"PLUGIN_INSECURE"},
+			Name:    "insecure-push",
+			Usage:   "insecure push",
+			EnvVars: []string{"PLUGIN_INSECURE_PUSH"},
 		},
 		&cli.BoolFlag{
 			Name:    "insecure-pull",
@@ -98,7 +98,7 @@ func settingsFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:    "no-push",
 			Usage:   "no push",
-			EnvVars: []string{"PLUGIN_NO_PUSH"},
+			EnvVars: []string{"PLUGIN_NO_PUSH", "PLUGIN_DRY_RUN"},
 		},
 		&cli.StringFlag{
 			Name:    "oci-layout-path",
@@ -108,7 +108,7 @@ func settingsFlags() []cli.Flag {
 		&cli.StringFlag{
 			Name:    "registry-mirror",
 			Usage:   "registry mirror",
-			EnvVars: []string{"PLUGIN_REGISTRY_MIRROR"},
+			EnvVars: []string{"PLUGIN_REGISTRY_MIRROR", "PLUGIN_MIRROR"},
 		},
 		&cli.BoolFlag{
 			Name:    "reproducible",
@@ -160,63 +160,69 @@ func settingsFlags() []cli.Flag {
 			Usage:   "whitelist /var/run/*",
 			EnvVars: []string{"PLUGIN_WHITELIST_VAR_RUN"},
 		},
-		// other args
-		&cli.StringSliceFlag{
-			Name:    "warmer-images",
-			Usage:   "cache from repo",
-			EnvVars: []string{"PLUGIN_WARMER_IMAGES", "PLUGIN_CACHE_FROM"},
+		// docker auth args
+		&cli.StringFlag{
+			Name:    "docker.registry",
+			Usage:   "docker registry",
+			EnvVars: []string{"PLUGIN_REGISTRY"},
+		},
+		&cli.StringFlag{
+			Name:    "docker.username",
+			Usage:   "docker username",
+			EnvVars: []string{"PLUGIN_USERNAME", "DOCKER_USERNAME"},
+		},
+		&cli.StringFlag{
+			Name:    "docker.password",
+			Usage:   "docker password",
+			EnvVars: []string{"PLUGIN_PASSWORD", "DOCKER_PASSWORD"},
+		},
+		// other flags
+		&cli.StringFlag{
+			Name:    "build.repo",
+			Usage:   "repository name",
+			EnvVars: []string{"PLUGIN_REPO"},
 		},
 		&cli.BoolFlag{
-			Name:    "force-cache",
-			Usage:   "Force cache overwritting",
-			EnvVars: []string{"PLUGIN_FORCE_CACHE"},
+			Name:    "build.debug",
+			Usage:   "enable debug mode",
+			EnvVars: []string{"PLUGIN_DEBUG", "DOCKER_LAUNCH_DEBUG"},
 		},
 		&cli.StringSliceFlag{
-			Name:    "args-from-env",
-			Usage:   "build args",
-			EnvVars: []string{"PLUGIN_BUILD_ARGS_FROM_ENV"},
-		},
-		&cli.StringSliceFlag{
-			Name:     "tags",
+			Name:     "build.tags",
 			Usage:    "build tags",
 			Value:    cli.NewStringSlice("latest"),
 			EnvVars:  []string{"PLUGIN_TAG", "PLUGIN_TAGS"},
 			FilePath: ".tags",
 		},
+		&cli.StringSliceFlag{
+			Name:    "build.images",
+			Usage:   "cache from repo",
+			EnvVars: []string{"PLUGIN_WARMER_IMAGES", "PLUGIN_CACHE_FROM"},
+		},
 		&cli.BoolFlag{
-			Name:    "tags.auto",
+			Name:    "build.force-cache",
+			Usage:   "Force cache overwritting",
+			EnvVars: []string{"PLUGIN_FORCE_CACHE"},
+		},
+		&cli.StringSliceFlag{
+			Name:    "build.args-from-env",
+			Usage:   "build args",
+			EnvVars: []string{"PLUGIN_BUILD_ARGS_FROM_ENV"},
+		},
+		&cli.BoolFlag{
+			Name:    "build.tags-auto",
 			Usage:   "default build tags",
 			EnvVars: []string{"PLUGIN_DEFAULT_TAGS,PLUGIN_AUTO_TAG"},
 		},
 		&cli.StringFlag{
-			Name:    "tags.suffix",
+			Name:    "build.tags-suffix",
 			Usage:   "default build tags with suffix",
-			EnvVars: []string{"PLUGIN_DEFAULT_SUFFIX,PLUGIN_AUTO_TAG_SUFFIX"},
+			EnvVars: []string{"PLUGIN_DEFAULT_SUFFIX", "PLUGIN_AUTO_TAG_SUFFIX"},
 		},
-		&cli.StringFlag{
-			Name:    "username",
-			Usage:   "registry username",
-			EnvVars: []string{"PLUGIN_USERNAME,DOCKER_USERNAME"},
-		},
-		&cli.StringFlag{
-			Name:    "password",
-			Usage:   "registry password",
-			EnvVars: []string{"PLUGIN_PASSWORD,DOCKER_PASSWORD"},
-		},
-		&cli.StringFlag{
-			Name:    "registry",
-			Usage:   "docker registry",
-			EnvVars: []string{"PLUGIN_REGISTRY"},
-		},
-		&cli.StringFlag{
-			Name:    "repo",
-			Usage:   "docker repo",
-			EnvVars: []string{"PLUGIN_REPO"},
-		},
-		&cli.StringFlag{
-			Name:    "mirror",
-			Usage:   "docker repo",
-			EnvVars: []string{"PLUGIN_MIRROR"},
+		&cli.BoolFlag{
+			Name:    "build.insecure",
+			Usage:   "insecure",
+			EnvVars: []string{"PLUGIN_INSECURE"},
 		},
 	}
 }
@@ -236,7 +242,7 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		Dockerfile:              ctx.String("dockerfile"),
 		Force:                   ctx.Bool("force"),
 		ImageNameWithDigestFile: ctx.String("image-name-with-digest-file"),
-		Insecure:                ctx.Bool("insecure"),
+		InsecurePush:            ctx.Bool("insecure-push"),
 		InsecurePull:            ctx.Bool("insecure-pull"),
 		InsecureRegistries:      ctx.StringSlice("insecure-registries"),
 		Labels:                  ctx.StringSlice("labels"),
@@ -255,12 +261,19 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		Target:                  ctx.String("target"),
 		Verbosity:               ctx.String("verbosity"),
 		WhitelistVarRun:         ctx.Bool("whitelist-var-run"),
+		// auth args
+		Registry: ctx.String("docker.registry"),
+		Username: ctx.String("docker.username"),
+		Password: ctx.String("docker.password"),
 		// other args
-		BuildArgsFromEnv: ctx.StringSlice("build-args-from-env"),
-		ForceCache:       ctx.Bool("force-cache"),
-		Username:         ctx.String("username"),
-		Password:         ctx.String("password"),
-		Registry:         ctx.String("registry"),
-		WarmerImages:     ctx.StringSlice("warmer-images"),
+		BuildArgsFromEnv: ctx.StringSlice("build.args-from-env"),
+		ForceCache:       ctx.Bool("build.force-cache"),
+		Tags:             ctx.StringSlice("build.tags"),
+		TagsAuto:         ctx.Bool("build.tags-auto"),
+		TagsSuffix:       ctx.String("build.tags-suffix"),
+		WarmerImages:     ctx.StringSlice("build.images"),
+		Repo:             ctx.String("build.repo"),
+		Debug:            ctx.Bool("build.debug"),
+		Insecure:         ctx.Bool("build.insecure"),
 	}
 }
