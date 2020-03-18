@@ -112,8 +112,7 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 	if settings.Repo != "" {
 		for _, entry := range settings.Tags {
 			dest := fmt.Sprintf("%s:%s", settings.Repo, entry)
-			log.Printf("Using --destination %s", dest)
-			settings.Destinations = append(settings.Destinations)
+			settings.Destinations = append(settings.Destinations, dest)
 		}
 	}
 
