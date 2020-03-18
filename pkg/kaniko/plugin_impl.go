@@ -126,7 +126,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--build-arg", entry)
 	}
 	if settings.Cache {
-		args = append(args, "--cache", "true")
+		args = append(args, "--cache")
 	}
 	if settings.CacheDir != "" {
 		args = append(args, "--cache-dir", settings.CacheDir)
