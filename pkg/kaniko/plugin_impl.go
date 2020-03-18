@@ -98,6 +98,15 @@ func (p *pluginImpl) Execute() error {
 		p.settings.Images = append(p.settings.Images, p.settings.Destinations...)
 	}
 
+	if p.settings.Context == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			p.settings.Context = "."
+		} else {
+			p.settings.Context = wd
+		}
+	}
+
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion())           // kaniko version
 	if len(p.settings.Images) > 0 {
