@@ -55,7 +55,7 @@ type Settings struct {
 	Tags             []string
 	TagsAuto         bool
 	TagsSuffix       string
-	WarmerImages     []string
+	Images           []string
 	Repo             string
 	Debug            bool
 	Insecure         bool
@@ -96,7 +96,9 @@ func (p *pluginImpl) Execute() error {
 
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion())           // kaniko version
-	cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+	if len(p.settings.Images) > 0 {
+		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+	}
 	cmds = append(cmds, commandBuild(&p.settings))  // kaniko build
 
 	for _, cmd := range cmds {
@@ -234,7 +236,7 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	if settings.Verbosity != "" {
 		args = append(args, "--verbosity", settings.Verbosity)
 	}
-	for _, entry := range settings.WarmerImages {
+	for _, entry := range settings.Images {
 		args = append(args, "--image", entry)
 	}
 	return exec.Command(kanikoWarmer, args...)

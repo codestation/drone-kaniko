@@ -16,7 +16,7 @@ steps:
       - go test -v ./...
 
   - name: build
-    image: registry.megpoid.xyz/drone-kaniko
+    image: plugins/docker
     settings:
       repo: registry.megpoid.xyz/drone-kaniko
       tags: latest

@@ -64,16 +64,10 @@ func hasProxyBuildArg(settings *Settings, key string) bool {
 func generateAuthFile(settings *Settings) error {
 	if settings.Username != "" && settings.Password != "" {
 		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
-		var registry string
-		if settings.Registry != "" {
-			registry = settings.Registry
-		} else {
-			registry = "https://index.docker.io/v1/"
-		}
 
 		auth := authConfig{
 			Auths: map[string]authEntry{
-				registry: {Auth: encodedPassword},
+				settings.Registry: {Auth: encodedPassword},
 			},
 		}
 

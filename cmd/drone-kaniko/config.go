@@ -164,6 +164,7 @@ func settingsFlags() []cli.Flag {
 		&cli.StringFlag{
 			Name:    "docker.registry",
 			Usage:   "docker registry",
+			Value:   "index.docker.io",
 			EnvVars: []string{"PLUGIN_REGISTRY"},
 		},
 		&cli.StringFlag{
@@ -271,7 +272,7 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		Tags:             ctx.StringSlice("build.tags"),
 		TagsAuto:         ctx.Bool("build.tags-auto"),
 		TagsSuffix:       ctx.String("build.tags-suffix"),
-		WarmerImages:     ctx.StringSlice("build.images"),
+		Images:           ctx.StringSlice("build.images"),
 		Repo:             ctx.String("build.repo"),
 		Debug:            ctx.Bool("build.debug"),
 		Insecure:         ctx.Bool("build.insecure"),
