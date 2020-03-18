@@ -225,6 +225,11 @@ func settingsFlags() []cli.Flag {
 			Usage:   "insecure",
 			EnvVars: []string{"PLUGIN_INSECURE"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "build.label-schema",
+			Usage:   "label-schema labels",
+			EnvVars: []string{"PLUGIN_LABEL_SCHEMA"},
+		},
 	}
 }
 
@@ -276,5 +281,6 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		Repo:             ctx.String("build.repo"),
 		Debug:            ctx.Bool("build.debug"),
 		Insecure:         ctx.Bool("build.insecure"),
+		LabelSchema:      ctx.StringSlice("label-schema"),
 	}
 }

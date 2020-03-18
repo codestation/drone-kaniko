@@ -59,6 +59,7 @@ type Settings struct {
 	Repo             string
 	Debug            bool
 	Insecure         bool
+	LabelSchema      []string
 }
 
 type authConfig struct {
@@ -91,6 +92,7 @@ func (p *pluginImpl) Execute() error {
 	if err := generateAuthFile(&p.settings); err != nil {
 		return err
 	}
+	generateLabelSchemas(&p.settings, &p.pipeline)
 	addProxyBuildArgs(&p.settings)
 	addArgsFromEnv(&p.settings)
 
@@ -108,11 +110,11 @@ func (p *pluginImpl) Execute() error {
 	}
 
 	var cmds []*exec.Cmd
-	cmds = append(cmds, commandVersion())           // kaniko version
+	cmds = append(cmds, commandVersion()) // kaniko version
 	if len(p.settings.Images) > 0 {
 		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
-	cmds = append(cmds, commandBuild(&p.settings))  // kaniko build
+	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
 
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout

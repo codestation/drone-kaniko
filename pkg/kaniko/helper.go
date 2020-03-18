@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	tags "github.com/drone-plugins/drone-docker"
 	"github.com/drone-plugins/drone-plugin-lib/drone"
@@ -131,4 +132,21 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) bool 
 	}
 
 	return true
+}
+
+func generateLabelSchemas(settings *Settings, pipeline *drone.Pipeline) {
+	labelSchema := []string{
+		"schema-version=1.0",
+		fmt.Sprintf("build-date=%s", time.Now().Format(time.RFC3339)),
+		fmt.Sprintf("vcs-ref=%s", pipeline.Commit.SHA),
+		fmt.Sprintf("vcs-url=%s", pipeline.Repo.HTTPURL),
+	}
+
+	if len(settings.LabelSchema) > 0 {
+		labelSchema = append(labelSchema, settings.LabelSchema...)
+	}
+
+	for _, label := range labelSchema {
+		settings.Labels = append(settings.Labels, fmt.Sprintf("org.label-schema.%s", label))
+	}
 }
