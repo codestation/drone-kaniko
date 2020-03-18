@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/drone-plugins/drone-plugin-lib/urfave"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"megpoid.xyz/go/drone-kaniko/pkg/kaniko"
 )
@@ -23,7 +23,7 @@ func main() {
 
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }
 

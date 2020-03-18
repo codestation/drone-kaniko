@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -15,6 +14,7 @@ import (
 
 	tags "github.com/drone-plugins/drone-docker"
 	"github.com/drone-plugins/drone-plugin-lib/drone"
+	"github.com/sirupsen/logrus"
 )
 
 type authConfig struct {
@@ -88,7 +88,7 @@ func generateAuthFile(settings *Settings) error {
 		}
 
 		configJson := "/kaniko/.docker/config.json"
-		log.Printf("Generating auth info in %s", configJson)
+		logrus.Infof("Generating auth info in %s", configJson)
 		err = ioutil.WriteFile(configJson, data, 0600)
 		if err != nil {
 			return err
@@ -134,7 +134,7 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
 			settings.Tags = tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
 		} else {
-			log.Printf("Skipping automated build for %s", pipeline.Commit.Ref)
+			logrus.Warnf("Skipping automated build for %s", pipeline.Commit.Ref)
 		}
 	}
 
