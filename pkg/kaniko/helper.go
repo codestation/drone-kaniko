@@ -132,7 +132,12 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 
 	if settings.TagsAuto {
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
-			settings.Tags = tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
+			tag, err := tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
+			if err != nil {
+				logrus.Printf("cannot build docker image for %s, invalid semantic version", pipeline.Commit.Ref)
+				return err
+			}
+			settings.Tags = tag
 		} else {
 			logrus.Warnf("Skipping automated build for %s", pipeline.Commit.Ref)
 		}
