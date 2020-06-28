@@ -15,7 +15,7 @@ RUN go build -o release/drone-kaniko \
    -tags netgo \
    ./cmd/drone-kaniko
 
-FROM gcr.io/kaniko-project/executor:debug-23e3fe748663c191bb4e00aa3ac72cd4d22e608c
+FROM gcr.io/kaniko-project/executor:debug-cdbd8af0578c56e2801b57461e9f417f9479d303
 
 COPY --from=builder /src/release/drone-kaniko /drone-kaniko
 
