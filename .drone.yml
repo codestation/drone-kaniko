@@ -8,12 +8,10 @@ platform:
   arch: amd64
 
 steps:
-  - name: test
-    image: golang:1.14
+  - name: lint
+    image: golangci/golangci-lint:v1.39.0
     commands:
-      - go mod download
-      - go vet ./...
-      - go test -v ./...
+      - golangci-lint run --no-config -v --timeout 10m ./...
 
   - name: build
     image: plugins/docker

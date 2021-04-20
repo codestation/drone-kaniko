@@ -20,6 +20,7 @@ func main() {
 	app.Usage = "kaniko plugin"
 	app.Action = run
 	app.Flags = append(settingsFlags(), urfave.Flags()...)
+	app.Version = version
 
 	// Run the application
 	if err := app.Run(os.Args); err != nil {

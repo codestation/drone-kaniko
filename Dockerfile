@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine as builder
+FROM golang:1.16-alpine as builder
 
 ARG DRONE_COMMIT_SHA=dev
 ARG GOPROXY
@@ -15,8 +15,9 @@ RUN go build -o release/drone-kaniko \
    -tags netgo \
    ./cmd/drone-kaniko
 
-FROM gcr.io/kaniko-project/executor:debug-cdbd8af0578c56e2801b57461e9f417f9479d303
+# use the debug image since it comes with /kaniko/warmer
+FROM gcr.io/kaniko-project/executor:v1.5.2-debug
 
-COPY --from=builder /src/release/drone-kaniko /drone-kaniko
+COPY --from=builder /src/release/drone-kaniko /kaniko/
 
-ENTRYPOINT ["/drone-kaniko"]
+ENTRYPOINT ["/kaniko/drone-kaniko"]
