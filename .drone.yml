@@ -20,7 +20,10 @@ steps:
       tags: latest
       mirror: http://mirror:5000
       build_args:
-        - DRONE_COMMIT_SHA=${DRONE_COMMIT_SHA}
+        - CI_COMMIT_TAG=${DRONE_TAG}
+        - CI_COMMIT_BRANCH=${DRONE_BRANCH}
+        - CI_COMMIT_SHA=${DRONE_COMMIT_SHA}
+        - CI_PIPELINE_CREATED_AT=${DRONE_BUILD_CREATED}
       registry: registry.megpoid.xyz
       username:
         from_secret: docker_username

@@ -12,12 +12,14 @@ import (
 
 var (
 	version = "unknown"
+	commit = "unknown"
+	buildTime = "unknown"
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "kaniko plugin"
-	app.Usage = "kaniko plugin"
+	app.Name = "Kaniko plugin"
+	app.Usage = "Kaniko plugin"
 	app.Action = run
 	app.Flags = append(settingsFlags(), urfave.Flags()...)
 	app.Version = version
@@ -41,6 +43,8 @@ func run(ctx *cli.Context) error {
 	if err := plugin.Validate(); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
+
+	logrus.Infof("Starting Kaniko plugin version: %s, commit: %s, built at: %s", version, commit, buildTime)
 
 	// Run the plugin
 	if err := plugin.Execute(); err != nil {
