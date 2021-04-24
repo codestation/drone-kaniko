@@ -297,5 +297,6 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		Insecure:         ctx.Bool("insecure"),
 		LabelSchema:      ctx.StringSlice("label-schema"),
 		Mirror:           ctx.String("mirror"),
+		PushTarget:       ctx.Bool("push-target"),
 	}
 }

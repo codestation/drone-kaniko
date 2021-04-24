@@ -61,6 +61,7 @@ type Settings struct {
 	Insecure         bool
 	LabelSchema      []string
 	Mirror           string
+	PushTarget       bool
 }
 
 func (p *pluginImpl) Validate() error {
@@ -109,6 +110,14 @@ func (p *pluginImpl) Execute() error {
 		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
 	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
+
+	// If a push target is defined and the target is set then kaniko has already built
+	// and pushed the target image. Lets clear the target to it builds the full image
+	// and push it too.
+	if p.settings.PushTarget && p.settings.Target != "" {
+		p.settings.Target = ""
+		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
+	}
 
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout
