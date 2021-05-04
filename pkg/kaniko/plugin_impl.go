@@ -110,15 +110,20 @@ func (p *pluginImpl) Execute() error {
 	if len(p.settings.Images) > 0 {
 		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
-	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
 
-	// If a push target is defined and the target is set then kaniko has already built
-	// and pushed the target image. Lets clear the target to it builds the full image
-	// and push it too.
+	// If a push target is defined and the target is set then kaniko should build
 	if p.settings.PushTarget && p.settings.Target != "" {
+		destinations := p.settings.Destinations
+		// generate a new destination image based on the repo + target tag
+		destinationImage := fmt.Sprintf("%s:%s", p.settings.Repo, p.settings.Target)
+		p.settings.Destinations = []string{destinationImage}
+		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
+
+		// restore the original destination(s) and clear the target
+		p.settings.Destinations = destinations
 		p.settings.Target = ""
-		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
 	}
+	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
 
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout

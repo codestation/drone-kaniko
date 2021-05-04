@@ -113,6 +113,11 @@ func settingsFlags() []cli.Flag {
 			Usage:   `Path to save the OCI image layout of the built image`,
 			EnvVars: []string{"PLUGIN_OCI_LAYOUT_PATH"},
 		},
+		&cli.BoolFlag{
+			Name:    "push-target",
+			Usage:   `push the target image along the final image`,
+			EnvVars: []string{"PLUGIN_PUSH_TARGET"},
+		},
 		&cli.StringSliceFlag{
 			Name:    "registry-certificate",
 			Usage:   `Use the provided certificate for TLS communication with the given registry. Expected format is 'my.registry.url=/path/to/the/server/certificate'`,
