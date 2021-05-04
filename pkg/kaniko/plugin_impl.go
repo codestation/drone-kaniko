@@ -127,6 +127,11 @@ func (p *pluginImpl) Execute() error {
 
 		err := cmd.Run()
 		if err != nil {
+			var exerr *exec.ExitError
+			// ignore warmer errors since the first run there won't be a cache
+			if cmd.Args[0] == kanikoWarmer && errors.As(err, &exerr) {
+				continue
+			}
 			return err
 		}
 	}
