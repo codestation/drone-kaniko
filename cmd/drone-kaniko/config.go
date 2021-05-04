@@ -21,6 +21,11 @@ func settingsFlags() []cli.Flag {
 			Usage:   `Use cache when building image`,
 			EnvVars: []string{"PLUGIN_CACHE"},
 		},
+		&cli.BoolFlag{
+			Name:    "cache-copy-layers",
+			Usage:   `Caches copy layers`,
+			EnvVars: []string{"PLUGIN_CACHE_COPY_LAYERS"},
+		},
 		&cli.StringFlag{
 			Name:    "cache-dir",
 			Usage:   `Specify a local directory to use as a cache")`,
@@ -252,6 +257,7 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 	return kaniko.Settings{
 		BuildArgs:               ctx.StringSlice("build-arg"),
 		Cache:                   ctx.Bool("cache"),
+		CacheCopyLayers:         ctx.Bool("cache-copy-layers"),
 		CacheDir:                ctx.String("cache-dir"),
 		CacheRepo:               ctx.String("cache-repo"),
 		CacheTTL:                ctx.Duration("cache-ttl"),

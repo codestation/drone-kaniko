@@ -16,6 +16,7 @@ const kanikoWarmer = "/kaniko/warmer"
 type Settings struct {
 	BuildArgs               []string
 	Cache                   bool
+	CacheCopyLayers         bool
 	CacheDir                string
 	CacheRepo               string
 	CacheTTL                time.Duration
@@ -145,6 +146,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.Cache {
 		args = append(args, "--cache")
 	}
+	if settings.CacheCopyLayers {
+		args = append(args, "--cache-copy-layers")
+	}
 	if settings.CacheDir != "" {
 		args = append(args, "--cache-dir", settings.CacheDir)
 	}
@@ -249,8 +253,23 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.Images {
 		args = append(args, "--image", entry)
 	}
+	if settings.InsecurePull {
+		args = append(args, "--insecure-pull")
+	}
+	for _, entry := range settings.InsecureRegistries {
+		args = append(args, "--insecure-registry", entry)
+	}
 	if settings.LogFormat != "" {
 		args = append(args, "--log-format", settings.LogFormat)
+	}
+	if settings.RegistryMirror != "" {
+		args = append(args, "--registry-mirror", settings.RegistryMirror)
+	}
+	if settings.SkipTLSVerifyPull {
+		args = append(args, "--skip-tls-verify-pull")
+	}
+	for _, entry := range settings.SkipTLSVerifyRegistries {
+		args = append(args, "--skip-tls-verify-registry", entry)
 	}
 	if settings.Verbosity != "" {
 		args = append(args, "--verbosity", settings.Verbosity)
