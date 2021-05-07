@@ -16,7 +16,7 @@ steps:
   - name: build
     image: plugins/docker
     settings:
-      repo: registry.megpoid.xyz/drone-kaniko
+      repo: registry.megpoid.xyz/codestation/drone-kaniko
       tags: latest
       mirror: http://mirror:5000
       build_args:
