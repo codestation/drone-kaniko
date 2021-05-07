@@ -232,7 +232,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--skip-tls-verify-registry", entry)
 	}
 	if settings.SnapshotMode != "" {
-		args = append(args, "--snapshot-mode", settings.SnapshotMode)
+		args = append(args, "--snapshotMode", settings.SnapshotMode)
 	}
 	if settings.TarPath != "" {
 		args = append(args, "--tar-path", settings.TarPath)
