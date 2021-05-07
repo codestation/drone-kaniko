@@ -155,10 +155,10 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 
 func generateLabelSchemas(settings *Settings, pipeline *drone.Pipeline) {
 	labelSchema := []string{
-		"schema-version=1.0",
-		fmt.Sprintf("build-date=%s", time.Now().Format(time.RFC3339)),
-		fmt.Sprintf("vcs-ref=%s", pipeline.Commit.SHA),
-		fmt.Sprintf("vcs-url=%s", pipeline.Repo.HTTPURL),
+		fmt.Sprintf("created=%s", time.Now().Format(time.RFC3339)),
+		fmt.Sprintf("revision=%s", pipeline.Commit.SHA),
+		fmt.Sprintf("source=%s", pipeline.Repo.HTTPURL),
+		fmt.Sprintf("url=%s", pipeline.Repo.Link),
 	}
 
 	if len(settings.LabelSchema) > 0 {
@@ -166,6 +166,6 @@ func generateLabelSchemas(settings *Settings, pipeline *drone.Pipeline) {
 	}
 
 	for _, label := range labelSchema {
-		settings.Labels = append(settings.Labels, fmt.Sprintf("org.label-schema.%s", label))
+		settings.Labels = append(settings.Labels, fmt.Sprintf("org.opencontainers.image.%s", label))
 	}
 }

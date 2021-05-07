@@ -63,6 +63,7 @@ type Settings struct {
 	LabelSchema      []string
 	Mirror           string
 	PushTarget       bool
+	AutoLabel        bool
 }
 
 func (p *pluginImpl) Validate() error {
@@ -83,8 +84,10 @@ func (p *pluginImpl) Validate() error {
 		return fmt.Errorf("failed to generate docker auth file: %w", err)
 	}
 
+	if p.settings.AutoLabel {
+		generateLabelSchemas(&p.settings, &p.pipeline)
+	}
 	// set defaults
-	generateLabelSchemas(&p.settings, &p.pipeline)
 	addProxyBuildArgs(&p.settings)
 	addArgsFromEnv(&p.settings)
 

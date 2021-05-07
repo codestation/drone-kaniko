@@ -254,6 +254,12 @@ func settingsFlags() []cli.Flag {
 			Usage:   `Registry mirror (e.g. https://mirror.example.com). Compatible with drone-docker plugin to provide 'registry-mirror'`,
 			EnvVars: []string{"PLUGIN_MIRROR"},
 		},
+		&cli.BoolFlag{
+			Name:    "auto-label",
+			Usage:   `Auto-label true|false`,
+			Value:   true,
+			EnvVars: []string{"PLUGIN_AUTO_LABEL"},
+		},
 	}
 }
 
@@ -309,5 +315,6 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 		LabelSchema:      ctx.StringSlice("label-schema"),
 		Mirror:           ctx.String("mirror"),
 		PushTarget:       ctx.Bool("push-target"),
+		AutoLabel:        ctx.Bool("auto-label"),
 	}
 }
