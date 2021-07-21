@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/urfave"
 	"github.com/sirupsen/logrus"
@@ -11,9 +13,9 @@ import (
 )
 
 var (
-	version   = "unknown"
+	version   = "dev"
 	commit    = "unknown"
-	buildTime = "unknown"
+	buildTime string
 )
 
 func main() {
@@ -23,6 +25,14 @@ func main() {
 	app.Action = run
 	app.Flags = append(settingsFlags(), urfave.Flags()...)
 	app.Version = version
+
+	i, err := strconv.ParseInt(buildTime, 10, 64)
+	if err == nil {
+		tm := time.Unix(i, 0)
+		buildTime = tm.Format("Mon Jan _2 15:04:05 2006")
+	} else {
+		buildTime = "unknown"
+	}
 
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
