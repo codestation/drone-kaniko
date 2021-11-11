@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"time"
 
 	"github.com/drone-plugins/drone-plugin-lib/urfave"
 	"github.com/sirupsen/logrus"
@@ -12,11 +10,11 @@ import (
 	"megpoid.xyz/go/drone-kaniko/pkg/kaniko"
 )
 
-var (
-	version   = "dev"
-	commit    = "unknown"
-	buildTime string
-)
+const versionFormatter = `Kaniko plugin version: %s, commit: %s, built at: %s`
+
+func printVersion(c *cli.Context) {
+	_, _ = fmt.Fprintf(c.App.Writer, versionFormatter, Version, Commit, BuildTime)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -24,15 +22,8 @@ func main() {
 	app.Usage = "Kaniko plugin"
 	app.Action = run
 	app.Flags = append(settingsFlags(), urfave.Flags()...)
-	app.Version = version
-
-	i, err := strconv.ParseInt(buildTime, 10, 64)
-	if err == nil {
-		tm := time.Unix(i, 0)
-		buildTime = tm.Format("Mon Jan _2 15:04:05 2006")
-	} else {
-		buildTime = "unknown"
-	}
+	app.Version = Version
+	cli.VersionPrinter = printVersion
 
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
@@ -42,6 +33,8 @@ func main() {
 
 func run(ctx *cli.Context) error {
 	urfave.LoggingFromContext(ctx)
+
+	logrus.Infof(versionFormatter, Version, Commit, BuildTime)
 
 	plugin := kaniko.New(
 		settingsFromContext(ctx),
@@ -53,8 +46,6 @@ func run(ctx *cli.Context) error {
 	if err := plugin.Validate(); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
-
-	logrus.Infof("Starting Kaniko plugin version: %s, commit: %s, built at: %s", version, commit, buildTime)
 
 	// Run the plugin
 	if err := plugin.Execute(); err != nil {

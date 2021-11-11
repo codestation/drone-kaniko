@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,63 +15,89 @@ const kanikoWarmer = "/kaniko/warmer"
 
 // Settings for the Plugin.
 type Settings struct {
-	BuildArgs               []string
-	Cache                   bool
-	CacheCopyLayers         bool
-	CacheDir                string
-	CacheRepo               string
-	CacheTTL                time.Duration
-	Cleanup                 bool
-	Context                 string
-	Destinations            []string
-	DigestFile              string
-	Dockerfile              string
-	Force                   bool
-	ImageNameWithDigestFile string
-	InsecurePush            bool
-	InsecurePull            bool
-	InsecureRegistries      []string
-	Labels                  []string
-	LogFormat               string
-	NoPush                  bool
-	OCILayoutPath           string
-	RegistryCertificates    []string
-	RegistryMirror          string
-	Reproducible            bool
-	SingleSnapshot          bool
-	SkipTLSVerify           bool
-	SkipTLSVerifyPull       bool
-	SkipTLSVerifyRegistries []string
-	SnapshotMode            string
-	TarPath                 string
-	Target                  string
-	Verbosity               string
-	WhitelistVarRun         bool
-	// auth args
+	BuildArgs                  []string
+	Cache                      bool
+	CacheCopyLayers            bool
+	CacheDir                   string
+	CacheRepo                  string
+	CacheTTL                   time.Duration
+	Cleanup                    bool
+	CompressedCaching          bool
+	Context                    string
+	ContextSubPath             string
+	CustomPlatform             string
+	Destinations               []string
+	DigestFile                 string
+	Dockerfile                 string
+	Force                      bool
+	ForceBuildMetadata         bool
+	Git                        string
+	IgnorePath                 []string
+	ImageFsExtractRetry        int
+	ImageNameTagWithDigestFile string
+	ImageNameWithDigestFile    string
+	Insecure                   bool
+	InsecurePull               bool
+	InsecureRegistries         []string
+	Labels                     []string
+	LogFormat                  string
+	LogTimestamp               bool
+	NoPush                     bool
+	OCILayoutPath              string
+	PushRetry                  int
+	RegistryCertificates       []string
+	RegistryMirror             string
+	Reproducible               bool
+	SingleSnapshot             bool
+	SkipTLSVerify              bool
+	SkipTLSVerifyPull          bool
+	SkipTLSVerifyRegistries    []string
+	SkipUnusedStages           bool
+	SnapshotMode               string
+	TarPath                    string
+	Target                     string
+	UseNewRun                  bool
+	Verbosity                  string
+	Auth                       Auth
+	Main                       Main
+	Extra                      Extra
+}
+
+// Auth settings for the Plugin.
+type Auth struct {
 	Registry string
 	Username string
 	Password string
-	// other args
+}
+
+// Main args for the Plugin.
+type Main struct {
 	BuildArgsFromEnv []string
+	Debug            bool
+	DryRun           bool
 	ForceCache       bool
 	Tags             []string
 	TagsAuto         bool
 	TagsSuffix       string
 	Images           []string
 	Repo             string
-	Debug            bool
-	Insecure         bool
 	LabelSchema      []string
 	Mirror           string
 	PushTarget       bool
 	AutoLabel        bool
 }
 
+// Extra args for the plugin
+type Extra struct {
+	Executor []string
+	Warmer   []string
+}
+
 func (p *pluginImpl) Validate() error {
 	if err := enableCompatibilityMode(&p.settings, &p.pipeline); err != nil {
 		return err
 	}
-	if p.settings.NoPush && len(p.settings.Destinations) == 0 {
+	if !p.settings.NoPush && len(p.settings.Destinations) == 0 {
 		return errors.New("must provide either no-push or at least one destination")
 	}
 	for _, entry := range p.settings.RegistryCertificates {
@@ -80,11 +107,11 @@ func (p *pluginImpl) Validate() error {
 		}
 	}
 
-	if err := generateAuthFile(&p.settings); err != nil {
+	if err := generateAuthFile(&p.settings.Auth); err != nil {
 		return fmt.Errorf("failed to generate docker auth file: %w", err)
 	}
 
-	if p.settings.AutoLabel {
+	if p.settings.Main.AutoLabel {
 		generateLabelSchemas(&p.settings, &p.pipeline)
 	}
 	// set defaults
@@ -92,7 +119,7 @@ func (p *pluginImpl) Validate() error {
 	addArgsFromEnv(&p.settings)
 
 	if p.settings.Cache {
-		p.settings.Images = append(p.settings.Images, p.settings.Destinations...)
+		p.settings.Main.Images = append(p.settings.Main.Images, p.settings.Destinations...)
 	}
 
 	if p.settings.Context == "" {
@@ -110,15 +137,15 @@ func (p *pluginImpl) Validate() error {
 func (p *pluginImpl) Execute() error {
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandVersion()) // kaniko version
-	if len(p.settings.Images) > 0 {
+	if len(p.settings.Main.Images) > 0 {
 		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
 
 	// If a push target is defined and the target is set then kaniko should build
-	if p.settings.PushTarget && p.settings.Target != "" {
+	if p.settings.Main.PushTarget && p.settings.Target != "" {
 		destinations := p.settings.Destinations
 		// generate a new destination image based on the repo + target tag
-		destinationImage := fmt.Sprintf("%s:%s", p.settings.Repo, p.settings.Target)
+		destinationImage := fmt.Sprintf("%s:%s", p.settings.Main.Repo, p.settings.Target)
 		p.settings.Destinations = []string{destinationImage}
 		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
 
@@ -174,8 +201,17 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.Cleanup {
 		args = append(args, "--cleanup")
 	}
+	if settings.CompressedCaching {
+		args = append(args, "--compressed-caching")
+	}
 	if settings.Context != "" {
 		args = append(args, "--context", settings.Context)
+	}
+	if settings.ContextSubPath != "" {
+		args = append(args, "--context-sub-path", settings.ContextSubPath)
+	}
+	if settings.CustomPlatform != "" {
+		args = append(args, "--customPlatform", settings.CustomPlatform)
 	}
 	for _, entry := range settings.Destinations {
 		args = append(args, "--destination", entry)
@@ -189,10 +225,25 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.Force {
 		args = append(args, "--force")
 	}
+	if settings.ForceBuildMetadata {
+		args = append(args, "--force-build-metadata")
+	}
+	if settings.Git != "" {
+		args = append(args, "--git", settings.Git)
+	}
+	for _, entry := range settings.IgnorePath {
+		args = append(args, "--ignore-path", entry)
+	}
+	if settings.ImageFsExtractRetry > 0 {
+		args = append(args, "--image-fs-extract-retry", strconv.FormatInt(int64(settings.ImageFsExtractRetry), 10))
+	}
+	if settings.ImageNameTagWithDigestFile != "" {
+		args = append(args, "--image-name-tag-with-digest-file", settings.ImageNameTagWithDigestFile)
+	}
 	if settings.ImageNameWithDigestFile != "" {
 		args = append(args, "--image-name-with-digest-file", settings.ImageNameWithDigestFile)
 	}
-	if settings.InsecurePush {
+	if settings.Insecure {
 		args = append(args, "--insecure")
 	}
 	if settings.InsecurePull {
@@ -207,11 +258,17 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.LogFormat != "" {
 		args = append(args, "--log-format", settings.LogFormat)
 	}
+	if settings.LogTimestamp {
+		args = append(args, "--log-timestamp")
+	}
 	if settings.NoPush {
 		args = append(args, "--no-push")
 	}
 	if settings.OCILayoutPath != "" {
 		args = append(args, "--oci-layout-path", settings.OCILayoutPath)
+	}
+	if settings.PushRetry > 0 {
+		args = append(args, "--push-retry", strconv.FormatInt(int64(settings.PushRetry), 10))
 	}
 	for _, entry := range settings.RegistryCertificates {
 		args = append(args, "--registry-certificate", entry)
@@ -234,6 +291,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.SkipTLSVerifyRegistries {
 		args = append(args, "--skip-tls-verify-registry", entry)
 	}
+	if settings.SkipUnusedStages {
+		args = append(args, "--skip-unused-stages")
+	}
 	if settings.SnapshotMode != "" {
 		args = append(args, "--snapshotMode", settings.SnapshotMode)
 	}
@@ -243,11 +303,14 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.Target != "" {
 		args = append(args, "--target", settings.Target)
 	}
+	if settings.UseNewRun {
+		args = append(args, "--use-new-run")
+	}
 	if settings.Verbosity != "" {
 		args = append(args, "--verbosity", settings.Verbosity)
 	}
-	if settings.WhitelistVarRun {
-		args = append(args, "--whitelist-var-run")
+	if len(settings.Extra.Executor) > 0 {
+		args = append(args, settings.Extra.Executor...)
 	}
 	return exec.Command(kanikoExecutor, args...)
 }
@@ -260,10 +323,13 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	if settings.CacheTTL != 0 {
 		args = append(args, "--cache-ttl", settings.CacheTTL.String())
 	}
-	if settings.ForceCache {
+	if settings.CustomPlatform != "" {
+		args = append(args, "--customPlatform", settings.CustomPlatform)
+	}
+	if settings.Main.ForceCache {
 		args = append(args, "--force")
 	}
-	for _, entry := range settings.Images {
+	for _, entry := range settings.Main.Images {
 		args = append(args, "--image", entry)
 	}
 	if settings.InsecurePull {
@@ -274,6 +340,12 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	}
 	if settings.LogFormat != "" {
 		args = append(args, "--log-format", settings.LogFormat)
+	}
+	if settings.LogTimestamp {
+		args = append(args, "--log-timestamp")
+	}
+	for _, entry := range settings.RegistryCertificates {
+		args = append(args, "--registry-certificate", entry)
 	}
 	if settings.RegistryMirror != "" {
 		args = append(args, "--registry-mirror", settings.RegistryMirror)
@@ -286,6 +358,9 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	}
 	if settings.Verbosity != "" {
 		args = append(args, "--verbosity", settings.Verbosity)
+	}
+	if len(settings.Extra.Warmer) > 0 {
+		args = append(args, settings.Extra.Warmer...)
 	}
 	return exec.Command(kanikoWarmer, args...)
 }

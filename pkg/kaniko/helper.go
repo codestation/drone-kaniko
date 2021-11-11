@@ -72,7 +72,7 @@ func hasProxyBuildArg(settings *Settings, key string) bool {
 	return false
 }
 
-func generateAuthFile(settings *Settings) error {
+func generateAuthFile(settings *Auth) error {
 	if settings.Username != "" && settings.Password != "" {
 		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
 
@@ -98,26 +98,22 @@ func generateAuthFile(settings *Settings) error {
 }
 
 func addArgsFromEnv(settings *Settings) {
-	for _, entry := range settings.BuildArgsFromEnv {
+	for _, entry := range settings.Main.BuildArgsFromEnv {
 		addProxyValue(settings, entry)
 	}
 }
 
 func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error {
-	if settings.Insecure {
-		settings.InsecurePull = true
-		settings.InsecurePush = true
-	}
-	if settings.Debug {
+	if settings.Main.Debug {
 		settings.Verbosity = "debug"
 	}
 
-	if settings.Mirror != "" {
+	if settings.Main.Mirror != "" {
 		if settings.RegistryMirror != "" {
 			return errors.New("mirror and registry-mirror cannot be set at the same time")
 		}
 		re := regexp.MustCompile("^(http?)://(.*)")
-		matches := re.FindStringSubmatch(settings.Mirror)
+		matches := re.FindStringSubmatch(settings.Main.Mirror)
 		if len(matches) > 2 {
 			if matches[1] == "http" {
 				// mark as insecure
@@ -126,26 +122,26 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 			// remove scheme from url
 			settings.RegistryMirror = matches[2]
 		} else {
-			return fmt.Errorf("invalid mirror: %s", settings.Mirror)
+			return fmt.Errorf("invalid mirror: %s", settings.Main.Mirror)
 		}
 	}
 
-	if settings.TagsAuto {
+	if settings.Main.TagsAuto {
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
-			tag, err := tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.TagsSuffix)
+			tag, err := tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.Main.TagsSuffix)
 			if err != nil {
 				logrus.Printf("cannot build docker image for %s, invalid semantic version", pipeline.Commit.Ref)
 				return err
 			}
-			settings.Tags = tag
+			settings.Main.Tags = tag
 		} else {
 			logrus.Warnf("Skipping automated build for %s", pipeline.Commit.Ref)
 		}
 	}
 
-	if settings.Repo != "" {
-		for _, entry := range settings.Tags {
-			dest := fmt.Sprintf("%s:%s", settings.Repo, entry)
+	if settings.Main.Repo != "" {
+		for _, entry := range settings.Main.Tags {
+			dest := fmt.Sprintf("%s:%s", settings.Main.Repo, entry)
 			settings.Destinations = append(settings.Destinations, dest)
 		}
 	}
@@ -161,8 +157,8 @@ func generateLabelSchemas(settings *Settings, pipeline *drone.Pipeline) {
 		fmt.Sprintf("url=%s", pipeline.Repo.Link),
 	}
 
-	if len(settings.LabelSchema) > 0 {
-		labelSchema = append(labelSchema, settings.LabelSchema...)
+	if len(settings.Main.LabelSchema) > 0 {
+		labelSchema = append(labelSchema, settings.Main.LabelSchema...)
 	}
 
 	for _, label := range labelSchema {

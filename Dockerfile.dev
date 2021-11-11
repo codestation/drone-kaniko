@@ -1,0 +1,3 @@
+FROM gcr.io/kaniko-project/executor:v1.7.0-debug AS kaniko
+FROM golang:1.17
+COPY --from=kaniko /kaniko/executor /kaniko/warmer /kaniko/
