@@ -201,8 +201,8 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.Cleanup {
 		args = append(args, "--cleanup")
 	}
-	if settings.CompressedCaching {
-		args = append(args, "--compressed-caching")
+	if !settings.CompressedCaching {
+		args = append(args, "--compressed-caching", "false")
 	}
 	if settings.Context != "" {
 		args = append(args, "--context", settings.Context)
