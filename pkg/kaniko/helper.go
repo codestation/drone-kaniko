@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -87,7 +88,13 @@ func generateAuthFile(settings *Auth) error {
 			return err
 		}
 
-		configJson := "/kaniko/.docker/config.json"
+		const kanikoDockerHome = "/kaniko/.docker"
+		err = os.MkdirAll(kanikoDockerHome, 0600)
+		if err != nil {
+			return err
+		}
+
+		configJson := filepath.Join(kanikoDockerHome, "config.json")
 		logrus.Infof("Generating auth info in %s", configJson)
 		err = ioutil.WriteFile(configJson, data, 0600)
 		if err != nil {
