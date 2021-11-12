@@ -1,4 +1,4 @@
-FROM gcr.io/kaniko-project/executor:v1.7.0-debug AS kaniko
+FROM gcr.io/kaniko-project/executor:v1.6.0-debug AS kaniko
 FROM golang:1.17
 
 WORKDIR /workspace
