@@ -74,42 +74,57 @@ func hasProxyBuildArg(settings *Settings, key string) bool {
 }
 
 func generateAuthFile(settings *Auth) error {
-	var data []byte
+	config := authConfig{Auths: map[string]authEntry{}}
+
 	if settings.Config != "" {
 		logrus.Info("Detected registry credentials file")
-		data = []byte(settings.Config)
-	} else if settings.Username != "" && settings.Password != "" {
-		logrus.Info("Detected registry credentials")
-		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
-
-		auth := authConfig{
-			Auths: map[string]authEntry{
-				settings.Registry: {Auth: encodedPassword},
-			},
-		}
-
-		var err error
-		data, err = json.MarshalIndent(auth, "", "\t")
+		err := json.Unmarshal([]byte(settings.Config), &config)
 		if err != nil {
 			return err
 		}
-	} else {
-		logrus.Info("Registry credentials or Docker config not provided. Guest mode enabled.")
 	}
 
-	if len(data) > 0 {
-		const kanikoDockerHome = "/kaniko/.docker"
-		err := os.MkdirAll(kanikoDockerHome, 0600)
-		if err != nil {
-			return err
+	if settings.Username != "" && settings.Password != "" {
+		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
+
+		if settings.Registry == "" {
+			settings.Registry = "https://index.docker.io/v1/"
 		}
 
-		configJson := filepath.Join(kanikoDockerHome, "config.json")
-		logrus.Infof("Generating auth info in %s", configJson)
-		err = ioutil.WriteFile(configJson, data, 0600)
-		if err != nil {
-			return err
+		if len(config.Auths) > 0 {
+			if _, ok := config.Auths[settings.Registry]; ok {
+				logrus.Info("Detected registry credentials settings, overriding auth from credentials file")
+			} else {
+				logrus.Info("Detected registry credentials settings, merging with credentials file")
+			}
+		} else {
+			logrus.Info("Detected registry credentials")
 		}
+
+		config.Auths[settings.Registry] = authEntry{Auth: encodedPassword}
+	}
+
+	if len(config.Auths) == 0 {
+		logrus.Info("Registry credentials or Docker config not provided. Guest mode enabled.")
+		return nil
+	}
+
+	data, err := json.MarshalIndent(config, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	const kanikoDockerHome = "/kaniko/.docker"
+	err = os.MkdirAll(kanikoDockerHome, 0600)
+	if err != nil {
+		return err
+	}
+
+	configJson := filepath.Join(kanikoDockerHome, "config.json")
+	logrus.Infof("Generating auth info in %s", configJson)
+	err = ioutil.WriteFile(configJson, data, 0600)
+	if err != nil {
+		return err
 	}
 
 	return nil
