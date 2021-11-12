@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 go build -o release/drone-kaniko \
     ./cmd/drone-kaniko
 
 # use the debug image since it comes with /kaniko/warmer
-FROM gcr.io/kaniko-project/executor:v1.7.0-debug
+FROM gcr.io/kaniko-project/executor:v1.6.0-debug
 LABEL maintainer="Codestation <codestation404@gmail.com>"
 
 COPY --from=builder /src/release/drone-kaniko /kaniko/
