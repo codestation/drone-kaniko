@@ -33,9 +33,17 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=timestamp::$(date +'%s')"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.IMAGE_NAME }}:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           labels: ${{ steps.meta.outputs.labels }}
+          build_args: |
+            ARG CI_COMMIT_TAG=${{ github.ref_name }}
+            ARG CI_COMMIT_SHA=${{ github.sha }}
+            ARG CI_PIPELINE_CREATED_AT=${{ steps.date.outputs.timestamp }}
