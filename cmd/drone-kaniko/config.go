@@ -246,6 +246,11 @@ func settingsFlags() []cli.Flag {
 			Usage:   `Docker password`,
 			EnvVars: []string{"PLUGIN_PASSWORD", "DOCKER_PASSWORD"},
 		},
+		&cli.StringFlag{
+			Name:    "docker.config",
+			Usage:   `Docker config json content`,
+			EnvVars: []string{"PLUGIN_CONFIG", "DOCKER_PLUGIN_CONFIG"},
+		},
 		// main flags
 		&cli.StringSliceFlag{
 			Name:    "args-from-env",
@@ -370,6 +375,7 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 			Registry: ctx.String("docker.registry"),
 			Username: ctx.String("docker.username"),
 			Password: ctx.String("docker.password"),
+			Config:   ctx.String("docker.config"),
 		},
 		// other args
 		Main: kaniko.Main{

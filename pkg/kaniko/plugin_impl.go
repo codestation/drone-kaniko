@@ -68,6 +68,7 @@ type Auth struct {
 	Registry string
 	Username string
 	Password string
+	Config   string
 }
 
 // Main args for the Plugin.

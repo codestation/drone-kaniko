@@ -74,7 +74,12 @@ func hasProxyBuildArg(settings *Settings, key string) bool {
 }
 
 func generateAuthFile(settings *Auth) error {
-	if settings.Username != "" && settings.Password != "" {
+	var data []byte
+	if settings.Config != "" {
+		logrus.Info("Detected registry credentials file")
+		data = []byte(settings.Config)
+	} else if settings.Username != "" && settings.Password != "" {
+		logrus.Info("Detected registry credentials")
 		encodedPassword := base64.StdEncoding.EncodeToString([]byte(settings.Username + ":" + settings.Password))
 
 		auth := authConfig{
@@ -83,13 +88,18 @@ func generateAuthFile(settings *Auth) error {
 			},
 		}
 
-		data, err := json.MarshalIndent(auth, "", "\t")
+		var err error
+		data, err = json.MarshalIndent(auth, "", "\t")
 		if err != nil {
 			return err
 		}
+	} else {
+		logrus.Info("Registry credentials or Docker config not provided. Guest mode enabled.")
+	}
 
+	if len(data) > 0 {
 		const kanikoDockerHome = "/kaniko/.docker"
-		err = os.MkdirAll(kanikoDockerHome, 0600)
+		err := os.MkdirAll(kanikoDockerHome, 0600)
 		if err != nil {
 			return err
 		}
@@ -101,6 +111,7 @@ func generateAuthFile(settings *Auth) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
