@@ -2,18 +2,21 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/drone-plugins/drone-plugin-lib/urfave"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"megpoid.xyz/go/drone-kaniko/pkg/kaniko"
+	"go.megpoid.dev/drone-kaniko/pkg/kaniko"
 )
 
-const versionFormatter = `Kaniko plugin version: %s, commit: %s, built at: %s`
-
 func printVersion(c *cli.Context) {
-	_, _ = fmt.Fprintf(c.App.Writer, versionFormatter, Version, Commit, BuildTime)
+	slog.Info("Kaniko plugin",
+		slog.String("version", Tag),
+		slog.String("commit", Revision),
+		slog.Time("date", LastCommit),
+		slog.Bool("clean_build", !Modified),
+	)
 }
 
 func main() {
@@ -22,19 +25,19 @@ func main() {
 	app.Usage = "Kaniko plugin"
 	app.Action = run
 	app.Flags = append(settingsFlags(), urfave.Flags()...)
-	app.Version = Version
+	app.Version = Tag
 	cli.VersionPrinter = printVersion
 
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
-		logrus.Fatal(err)
+		slog.Error("Kaniko plugin failed", "error", err)
 	}
 }
 
 func run(ctx *cli.Context) error {
 	urfave.LoggingFromContext(ctx)
 
-	logrus.Infof(versionFormatter, Version, Commit, BuildTime)
+	printVersion(ctx)
 
 	plugin := kaniko.New(
 		settingsFromContext(ctx),

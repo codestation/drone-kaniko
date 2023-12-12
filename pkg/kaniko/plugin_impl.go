@@ -10,57 +10,67 @@ import (
 	"time"
 )
 
-const kanikoExecutor = "/kaniko/executor"
-const kanikoWarmer = "/kaniko/warmer"
+const (
+	kanikoExecutor = "/kaniko/executor"
+	kanikoWarmer   = "/kaniko/warmer"
+)
 
 // Settings for the Plugin.
 type Settings struct {
-	BuildArgs                  []string
-	Cache                      bool
-	CacheCopyLayers            bool
-	CacheDir                   string
-	CacheRepo                  string
-	CacheTTL                   time.Duration
-	Cleanup                    bool
-	CompressedCaching          bool
-	Context                    string
-	ContextSubPath             string
-	CustomPlatform             string
-	Destinations               []string
-	DigestFile                 string
-	Dockerfile                 string
-	Force                      bool
-	ForceBuildMetadata         bool
-	Git                        string
-	IgnorePath                 []string
-	ImageFsExtractRetry        int
-	ImageNameTagWithDigestFile string
-	ImageNameWithDigestFile    string
-	Insecure                   bool
-	InsecurePull               bool
-	InsecureRegistries         []string
-	Labels                     []string
-	LogFormat                  string
-	LogTimestamp               bool
-	NoPush                     bool
-	OCILayoutPath              string
-	PushRetry                  int
-	RegistryCertificates       []string
-	RegistryMirror             string
-	Reproducible               bool
-	SingleSnapshot             bool
-	SkipTLSVerify              bool
-	SkipTLSVerifyPull          bool
-	SkipTLSVerifyRegistries    []string
-	SkipUnusedStages           bool
-	SnapshotMode               string
-	TarPath                    string
-	Target                     string
-	UseNewRun                  bool
-	Verbosity                  string
-	Auth                       Auth
-	Main                       Main
-	Extra                      Extra
+	BuildArgs                   []string
+	Cache                       bool
+	CacheCopyLayers             bool
+	CacheDir                    string
+	CacheRepo                   string
+	CacheTTL                    time.Duration
+	Cleanup                     bool
+	CompressedCaching           bool
+	Compression                 string
+	CompressionLevel            int
+	Context                     string
+	ContextSubPath              string
+	CustomPlatform              string
+	Destinations                []string
+	DigestFile                  string
+	Dockerfile                  string
+	Force                       bool
+	ForceBuildMetadata          bool
+	Git                         string
+	IgnorePath                  []string
+	IgnoreVarRun                bool
+	ImageFsExtractRetry         int
+	ImageNameTagWithDigestFile  string
+	ImageNameWithDigestFile     string
+	Insecure                    bool
+	InsecurePull                bool
+	InsecureRegistries          []string
+	KanikoDir                   string
+	Labels                      []string
+	LogFormat                   string
+	LogTimestamp                bool
+	NoPush                      bool
+	NoPushCache                 bool
+	OCILayoutPath               string
+	PushRetry                   int
+	RegistryCertificates        []string
+	RegistryClientCerts         []string
+	RegistryMirror              string
+	Reproducible                bool
+	SingleSnapshot              bool
+	SkipDefaultRegistryFallback bool
+	SkipPushPermissionCheck     bool
+	SkipTLSVerify               bool
+	SkipTLSVerifyPull           bool
+	SkipTLSVerifyRegistries     []string
+	SkipUnusedStages            bool
+	SnapshotMode                string
+	TarPath                     string
+	Target                      string
+	UseNewRun                   bool
+	Verbosity                   string
+	Auth                        Auth
+	Main                        Main
+	Extra                       Extra
 }
 
 // Auth settings for the Plugin.
@@ -205,6 +215,12 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if !settings.CompressedCaching {
 		args = append(args, "--compressed-caching", "false")
 	}
+	if settings.Compression != "" {
+		args = append(args, "--compression", settings.Compression)
+	}
+	if settings.CompressionLevel != -1 {
+		args = append(args, "--compression-level", strconv.FormatInt(int64(settings.CompressionLevel), 10))
+	}
 	if settings.Context != "" {
 		args = append(args, "--context", settings.Context)
 	}
@@ -235,6 +251,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.IgnorePath {
 		args = append(args, "--ignore-path", entry)
 	}
+	if settings.IgnoreVarRun {
+		args = append(args, "--ignore-var-run")
+	}
 	if settings.ImageFsExtractRetry > 0 {
 		args = append(args, "--image-fs-extract-retry", strconv.FormatInt(int64(settings.ImageFsExtractRetry), 10))
 	}
@@ -253,6 +272,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.InsecureRegistries {
 		args = append(args, "--insecure-registry", entry)
 	}
+	if settings.KanikoDir != "" {
+		args = append(args, "--kaniko-dir", settings.KanikoDir)
+	}
 	for _, entry := range settings.Labels {
 		args = append(args, "--label", entry)
 	}
@@ -265,6 +287,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.NoPush {
 		args = append(args, "--no-push")
 	}
+	if settings.NoPushCache {
+		args = append(args, "--no-push-cache")
+	}
 	if settings.OCILayoutPath != "" {
 		args = append(args, "--oci-layout-path", settings.OCILayoutPath)
 	}
@@ -274,6 +299,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.RegistryCertificates {
 		args = append(args, "--registry-certificate", entry)
 	}
+	for _, entry := range settings.RegistryClientCerts {
+		args = append(args, "--registry-client-cert", entry)
+	}
 	if settings.RegistryMirror != "" {
 		args = append(args, "--registry-mirror", settings.RegistryMirror)
 	}
@@ -282,6 +310,12 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	}
 	if settings.SingleSnapshot {
 		args = append(args, "--single-snapshot")
+	}
+	if settings.SkipDefaultRegistryFallback {
+		args = append(args, "--skip-default-registry-fallback")
+	}
+	if settings.SkipPushPermissionCheck {
+		args = append(args, "--skip-push-permission-check")
 	}
 	if settings.SkipTLSVerify {
 		args = append(args, "--skip-tls-verify")

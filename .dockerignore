@@ -1,4 +1,2 @@
-.git/
-.github/
-.drone.yml
-Dockerfile
+.idea/
+.vscode/

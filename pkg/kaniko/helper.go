@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +15,6 @@ import (
 
 	tags "github.com/drone-plugins/drone-docker"
 	"github.com/drone-plugins/drone-plugin-lib/drone"
-	"github.com/sirupsen/logrus"
 )
 
 type authConfig struct {
@@ -77,7 +76,7 @@ func generateAuthFile(settings *Auth) error {
 	config := authConfig{Auths: map[string]authEntry{}}
 
 	if settings.Config != "" {
-		logrus.Info("Detected registry credentials file")
+		slog.Info("Detected registry credentials file")
 		err := json.Unmarshal([]byte(settings.Config), &config)
 		if err != nil {
 			return err
@@ -93,19 +92,19 @@ func generateAuthFile(settings *Auth) error {
 
 		if len(config.Auths) > 0 {
 			if _, ok := config.Auths[settings.Registry]; ok {
-				logrus.Info("Detected registry credentials settings, overriding auth from credentials file")
+				slog.Info("Detected registry credentials settings, overriding auth from credentials file")
 			} else {
-				logrus.Info("Detected registry credentials settings, merging with credentials file")
+				slog.Info("Detected registry credentials settings, merging with credentials file")
 			}
 		} else {
-			logrus.Info("Detected registry credentials")
+			slog.Info("Detected registry credentials")
 		}
 
 		config.Auths[settings.Registry] = authEntry{Auth: encodedPassword}
 	}
 
 	if len(config.Auths) == 0 {
-		logrus.Info("Registry credentials or Docker config not provided. Guest mode enabled.")
+		slog.Info("Registry credentials or Docker config not provided. Guest mode enabled.")
 		return nil
 	}
 
@@ -115,14 +114,14 @@ func generateAuthFile(settings *Auth) error {
 	}
 
 	const kanikoDockerHome = "/kaniko/.docker"
-	err = os.MkdirAll(kanikoDockerHome, 0600)
+	err = os.MkdirAll(kanikoDockerHome, 0o600)
 	if err != nil {
 		return err
 	}
 
-	configJson := filepath.Join(kanikoDockerHome, "config.json")
-	logrus.Infof("Generating auth info in %s", configJson)
-	err = ioutil.WriteFile(configJson, data, 0600)
+	configFile := filepath.Join(kanikoDockerHome, "config.json")
+	slog.Info("Creating docker config", "path", configFile)
+	err = os.WriteFile(configFile, data, 0o600)
 	if err != nil {
 		return err
 	}
@@ -163,12 +162,12 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 		if tags.UseDefaultTag(pipeline.Commit.Ref, pipeline.Repo.Branch) {
 			tag, err := tags.DefaultTagSuffix(pipeline.Commit.Ref, settings.Main.TagsSuffix)
 			if err != nil {
-				logrus.Printf("cannot build docker image for %s, invalid semantic version", pipeline.Commit.Ref)
+				slog.Error("Cannot build docker image, invalid semantic version", "image", pipeline.Commit.Ref)
 				return err
 			}
 			settings.Main.Tags = tag
 		} else {
-			logrus.Warnf("Skipping automated build for %s", pipeline.Commit.Ref)
+			slog.Warn("Skipping automated build", "image", pipeline.Commit.Ref)
 		}
 	}
 
