@@ -317,6 +317,11 @@ func settingsFlags() []cli.Flag {
 			FilePath: ".tags",
 		},
 		&cli.StringSliceFlag{
+			Name:    "platforms",
+			Usage:   "Set target platform for build, overrides custom-platform",
+			EnvVars: []string{"PLUGIN_PLATFORMS", "PLUGIN_PLATFORM"},
+		},
+		&cli.StringSliceFlag{
 			Name:    "image",
 			Aliases: []string{"cache-from"},
 			Usage:   `Image to cache`,
@@ -352,6 +357,11 @@ func settingsFlags() []cli.Flag {
 			Usage:   `Auto-label true|false`,
 			Value:   true,
 			EnvVars: []string{"PLUGIN_AUTO_LABEL"},
+		},
+		&cli.BoolFlag{
+			Name:    "ignore-missing",
+			Usage:   `Only warn on missing images defined in platform list`,
+			EnvVars: []string{"PLUGIN_IGNORE_MISSING"},
 		},
 		&cli.StringSliceFlag{
 			Name:    "executor-extra-args",
@@ -434,6 +444,7 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 			DryRun:           ctx.Bool("dry-run"),
 			ForceCache:       ctx.Bool("force-cache"),
 			Tags:             ctx.StringSlice("tags"),
+			Platforms:        ctx.StringSlice("platforms"),
 			TagsAuto:         ctx.Bool("tags-auto"),
 			TagsSuffix:       ctx.String("tags-suffix"),
 			Images:           ctx.StringSlice("image"),
@@ -442,6 +453,9 @@ func settingsFromContext(ctx *cli.Context) kaniko.Settings {
 			Mirror:           ctx.String("mirror"),
 			PushTarget:       ctx.Bool("push-target"),
 			AutoLabel:        ctx.Bool("auto-label"),
+		},
+		Manifest: kaniko.Manifest{
+			IgnoreMissing: ctx.Bool("ignore-missing"),
 		},
 		Extra: kaniko.Extra{
 			Executor: ctx.StringSlice("executor-extra-args"),

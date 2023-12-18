@@ -8,6 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/estesp/manifest-tool/v2/pkg/types"
+	"github.com/google/go-containerregistry/pkg/name"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"go.megpoid.dev/drone-kaniko/pkg/crane"
+	"go.megpoid.dev/drone-kaniko/pkg/manifest"
 )
 
 const (
@@ -70,6 +76,7 @@ type Settings struct {
 	Verbosity                   string
 	Auth                        Auth
 	Main                        Main
+	Manifest                    Manifest
 	Extra                       Extra
 }
 
@@ -88,6 +95,7 @@ type Main struct {
 	DryRun           bool
 	ForceCache       bool
 	Tags             []string
+	Platforms        []string
 	TagsAuto         bool
 	TagsSuffix       string
 	Images           []string
@@ -98,23 +106,51 @@ type Main struct {
 	AutoLabel        bool
 }
 
+type Manifest struct {
+	IgnoreMissing bool
+}
+
 // Extra args for the plugin
 type Extra struct {
 	Executor []string
 	Warmer   []string
 }
 
+type Platform struct {
+	OS           string
+	Architecture string
+	TarballPath  string
+}
+
 func (p *pluginImpl) Validate() error {
 	if err := enableCompatibilityMode(&p.settings, &p.pipeline); err != nil {
 		return err
 	}
-	if !p.settings.NoPush && len(p.settings.Destinations) == 0 {
-		return errors.New("must provide either no-push or at least one destination")
+
+	if !p.settings.NoPush && len(p.settings.Destinations) == 0 && p.settings.Main.Repo == "" {
+		return errors.New("must provide either no-push or at least one repo/destination")
 	}
+
 	for _, entry := range p.settings.RegistryCertificates {
 		parts := strings.Split(entry, "=")
 		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 			return fmt.Errorf("invalid registry-certificate: %s", entry)
+		}
+	}
+
+	for _, entry := range p.settings.RegistryClientCerts {
+		parts := strings.Split(entry, "=")
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("invalid registry-client-cert: %s", entry)
+		}
+	}
+
+	if len(p.settings.Main.Platforms) > 0 {
+		if p.settings.CustomPlatform != "" {
+			return fmt.Errorf("platforms is set, custom-platform will be ignored")
+		}
+		if p.settings.TarPath != "" {
+			return fmt.Errorf("platforms is set, tar-path will be ignored")
 		}
 	}
 
@@ -147,25 +183,126 @@ func (p *pluginImpl) Validate() error {
 
 func (p *pluginImpl) Execute() error {
 	var cmds []*exec.Cmd
-	cmds = append(cmds, commandVersion()) // kaniko version
+	cmds = append(cmds, commandKanikoVersion()) // kaniko version
+
 	if len(p.settings.Main.Images) > 0 {
 		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
 
-	// If a push target is defined and the target is set then kaniko should build
-	if p.settings.Main.PushTarget && p.settings.Target != "" {
-		destinations := p.settings.Destinations
-		// generate a new destination image based on the repo + target tag
-		destinationImage := fmt.Sprintf("%s:%s", p.settings.Main.Repo, p.settings.Target)
-		p.settings.Destinations = []string{destinationImage}
+	// no platforms, just build and push directly without a manifest
+	if len(p.settings.Main.Platforms) == 0 {
 		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
+		if err := runCmds(cmds); err != nil {
+			return err
+		}
 
-		// restore the original destination(s) and clear the target
-		p.settings.Destinations = destinations
-		p.settings.Target = ""
+		return nil
 	}
-	cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
 
+	// list of repositories with their tags
+	repositories := make(map[string][]string)
+
+	for idx, destination := range p.settings.Destinations {
+		tag, err := name.NewTag(destination)
+		if err != nil {
+			return fmt.Errorf("invalid destination: %s", destination)
+		}
+
+		repoName := tag.Repository.Name()
+		if _, ok := repositories[repoName]; !ok {
+			repositories[repoName] = []string{tag.TagStr()}
+		} else {
+			repositories[repoName] = append(repositories[repoName], tag.TagStr())
+		}
+
+		// update the destination list with default tags, if missing
+		p.settings.Destinations[idx] = tag.Name()
+	}
+
+	// do not push yet if there are multiple platforms, we need to prepare the manifest first
+	p.settings.NoPush = true
+	replacer := strings.NewReplacer("/", "_")
+
+	for _, platform := range p.settings.Main.Platforms {
+		p.settings.CustomPlatform = platform
+		p.settings.TarPath = replacer.Replace(platform) + ".tar"
+
+		// kaniko is called once per platform
+		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
+	}
+
+	for _, cmd := range cmds {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		trace(cmd)
+
+		err := cmd.Run()
+		if err != nil {
+			var exErr *exec.ExitError
+			// ignore warmer errors since the first run there won't be a cache
+			if cmd.Args[0] == kanikoWarmer && errors.As(err, &exErr) {
+				continue
+			}
+			return err
+		}
+	}
+
+	digestMap := make(map[string]string)
+
+	for _, platform := range p.settings.Main.Platforms {
+		tarPath := replacer.Replace(platform) + ".tar"
+
+		// push the tarball to the registry, once per platform
+		digest, craneErr := crane.Push(tarPath, crane.WithDigest())
+		if craneErr != nil {
+			return fmt.Errorf("failed to push %s tarball: %w", platform, craneErr)
+		}
+
+		digestMap[platform] = digest
+	}
+
+	cfg := manifest.Config{
+		Insecure: p.settings.Insecure,
+	}
+
+	for repoName, tags := range repositories {
+		var images []types.ManifestEntry
+
+		for _, platform := range p.settings.Main.Platforms {
+			platformParts := strings.Split(platform, "/")
+
+			if len(platformParts) != 2 {
+				return fmt.Errorf("invalid platform: %s", platform)
+			}
+
+			OS, arch := platformParts[0], platformParts[1]
+
+			if digest, ok := digestMap[platform]; ok {
+				images = append(images, types.ManifestEntry{
+					Image: repoName + "@" + digest,
+					Platform: ocispec.Platform{
+						Architecture: arch,
+						OS:           OS,
+					},
+				})
+			} else {
+				return fmt.Errorf("failed to find digest for %s", platform)
+			}
+		}
+
+		target := repoName + ":" + tags[0]
+
+		// push the manifest to the registry, per repository
+		manifestErr := manifest.Push(target, tags[1:], images, cfg)
+		if manifestErr != nil {
+			return fmt.Errorf("failed to push manifest: %w", manifestErr)
+		}
+	}
+
+	return nil
+}
+
+func runCmds(cmds []*exec.Cmd) error {
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -185,7 +322,7 @@ func (p *pluginImpl) Execute() error {
 	return nil
 }
 
-func commandVersion() *exec.Cmd {
+func commandKanikoVersion() *exec.Cmd {
 	return exec.Command(kanikoExecutor, "version")
 }
 
@@ -196,15 +333,15 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	}
 	if settings.Cache {
 		args = append(args, "--cache")
+		if settings.CacheRepo != "" {
+			args = append(args, "--cache-repo", settings.CacheRepo)
+		}
 	}
 	if settings.CacheCopyLayers {
 		args = append(args, "--cache-copy-layers")
 	}
 	if settings.CacheDir != "" {
 		args = append(args, "--cache-dir", settings.CacheDir)
-	}
-	if settings.CacheRepo != "" {
-		args = append(args, "--cache-repo", settings.CacheRepo)
 	}
 	if settings.CacheTTL != 0 {
 		args = append(args, "--cache-ttl", settings.CacheTTL.String())
@@ -228,7 +365,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--context-sub-path", settings.ContextSubPath)
 	}
 	if settings.CustomPlatform != "" {
-		args = append(args, "--customPlatform", settings.CustomPlatform)
+		args = append(args, "--custom-platform", settings.CustomPlatform)
 	}
 	for _, entry := range settings.Destinations {
 		args = append(args, "--destination", entry)
