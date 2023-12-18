@@ -16,7 +16,7 @@ RUN  set -ex; \
     -trimpath \
     -tags netgo \
     -ldflags "-w -s \
-    -X go.megpoid.dev/drone-kaniko/cmd/main.Tag=${CI_COMMIT_TAG}" \
+    -X go.megpoid.dev/drone-kaniko/cmd/drone-kaniko/main.Tag=${CI_COMMIT_TAG}" \
     ./cmd/drone-kaniko
 
 # use the debug image since it comes with /kaniko/warmer

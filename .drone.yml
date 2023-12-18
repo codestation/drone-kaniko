@@ -16,7 +16,7 @@ steps:
   - name: build
     image: ghcr.io/codestation/drone-docker
     settings:
-      repo: ghcr.io/codestation/drone-kaniko
+      repo: registry.megpoid.dev/codestation/drone-kaniko
       tags: latest
       registry: registry.megpoid.dev
       config:
