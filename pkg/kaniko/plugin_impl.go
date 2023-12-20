@@ -7,6 +7,7 @@ package kaniko
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -94,20 +95,21 @@ type Auth struct {
 
 // Main args for the Plugin.
 type Main struct {
-	BuildArgsFromEnv []string
-	Debug            bool
-	DryRun           bool
-	ForceCache       bool
-	Tags             []string
-	Platforms        []string
-	TagsAuto         bool
-	TagsSuffix       string
-	Images           []string
-	Repo             string
-	LabelSchema      []string
-	Mirror           string
-	PushTarget       bool
-	AutoLabel        bool
+	BuildArgsFromEnv    []string
+	Debug               bool
+	DryRun              bool
+	ForceCache          bool
+	Tags                []string
+	Platforms           []string
+	TagsAuto            bool
+	TagsSuffix          string
+	Images              []string
+	Repo                string
+	LabelSchema         []string
+	Mirror              string
+	PushTarget          bool
+	AutoLabel           bool
+	IncludePlatformTags bool
 }
 
 type Manifest struct {
@@ -256,8 +258,18 @@ func (p *pluginImpl) Execute() error {
 	for _, platform := range p.settings.Main.Platforms {
 		tarPath := replacer.Replace(platform) + ".tar"
 
+		var (
+			digest   string
+			craneErr error
+		)
+
 		// push the tarball to the registry, once per platform
-		digest, craneErr := crane.Push(tarPath, crane.WithDigest())
+		if p.settings.Main.IncludePlatformTags {
+			digest, craneErr = crane.Push(tarPath)
+		} else {
+			digest, craneErr = crane.Push(tarPath, crane.WithDigest())
+		}
+
 		if craneErr != nil {
 			return fmt.Errorf("failed to push %s tarball: %w", platform, craneErr)
 		}
@@ -300,6 +312,15 @@ func (p *pluginImpl) Execute() error {
 		manifestErr := manifest.Push(target, tags[1:], images, cfg)
 		if manifestErr != nil {
 			return fmt.Errorf("failed to push manifest: %w", manifestErr)
+		}
+	}
+
+	if p.settings.Cleanup {
+		for _, platform := range p.settings.Main.Platforms {
+			tarPath := replacer.Replace(platform) + ".tar"
+			if err := os.Remove(tarPath); err != nil {
+				slog.Error("Failed to remove tarball", "tarball", tarPath, "error", err)
+			}
 		}
 	}
 
@@ -372,6 +393,12 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--custom-platform", settings.CustomPlatform)
 	}
 	for _, entry := range settings.Destinations {
+		if settings.Main.IncludePlatformTags {
+			platformParts := strings.Split(settings.CustomPlatform, "/")
+			arch := platformParts[1]
+			entry = entry + "-" + arch
+		}
+
 		args = append(args, "--destination", entry)
 	}
 	if settings.DigestFile != "" {

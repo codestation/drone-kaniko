@@ -70,8 +70,8 @@ func Push(file string, opts ...Option) (string, error) {
 		repoName := tag.Repository.Name()
 		if _, ok := repos[repoName]; !ok {
 			repos[repoName] = hash.String()
-		} else if repos[repoName] == hash.String() {
-			// skip if the tag points to the same image
+		} else if cfg.UseDigest && repos[repoName] == hash.String() {
+			// skip if the tag points to the same image (only if using digest)
 			continue
 		}
 
