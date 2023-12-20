@@ -20,7 +20,7 @@ RUN  set -ex; \
     ./cmd/drone-kaniko
 
 # use the debug image since it comes with /kaniko/warmer
-FROM gcr.io/kaniko-project/executor:v1.18.0-debug
+FROM gcr.io/kaniko-project/executor:v1.19.2
 LABEL maintainer="Codestation <codestation@megpoid.dev>"
 
 COPY --from=builder /src/release/drone-kaniko /kaniko/

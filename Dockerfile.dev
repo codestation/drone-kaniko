@@ -1,18 +1,15 @@
-FROM gcr.io/kaniko-project/executor:v1.18.0-debug AS kaniko
-FROM golang:1.21-alpine
+FROM golang:1.21-alpine AS gcompat
 
-RUN apk add --no-cache gcompat
+RUN apk fetch --no-cache musl-obstack libucontext gcompat musl \
+    && mkdir /gcompat \
+	&& tar -C /gcompat -xzf gcompat-*.apk \
+    && tar -C /gcompat -xzf musl-obstack-*.apk \
+	&& tar -C /gcompat -xzf libucontext-*.apk \
+    && tar -C /gcompat -xzf musl-1*.apk \
+    && rm -rf *.apk \
+    && rm -rf /gcompat/.PKGINFO \
+    && rm -rf /gcompat/.SIGN.RSA*
 
-COPY --from=kaniko /kaniko /kaniko
-COPY --from=kaniko /busybox /busybox
+FROM gcr.io/kaniko-project/executor:v1.19.2-debug
 
-RUN mkdir /workspace
-
-ENV HOME /root
-ENV USER root
-ENV DOCKER_CONFIG /kaniko/.docker/
-ENV SSL_CERT_DIR=/kaniko/ssl/certs
-ENV DOCKER_CREDENTIAL_GCR_CONFIG /kaniko/.config/gcloud/docker_credential_gcr_config.json
-ENV PATH /usr/local/bin:/kaniko:/busybox
-
-WORKDIR /workspace
+COPY --from=gcompat /gcompat /
