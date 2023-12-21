@@ -7,7 +7,6 @@ package kaniko
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -17,7 +16,6 @@ import (
 	"github.com/estesp/manifest-tool/v2/pkg/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"go.megpoid.dev/drone-kaniko/pkg/crane"
 	"go.megpoid.dev/drone-kaniko/pkg/manifest"
 )
 
@@ -191,18 +189,25 @@ func (p *pluginImpl) Execute() error {
 	var cmds []*exec.Cmd
 	cmds = append(cmds, commandKanikoVersion()) // kaniko version
 
-	if len(p.settings.Main.Images) > 0 {
-		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
-	}
-
 	// no platforms, just build and push directly without a manifest
 	if len(p.settings.Main.Platforms) == 0 {
+		if len(p.settings.Main.Images) > 0 {
+			cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+		}
+
 		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build/push
 		if err := runCmds(cmds); err != nil {
 			return err
 		}
 
 		return nil
+	}
+
+	for _, platform := range p.settings.Main.Platforms {
+		p.settings.CustomPlatform = platform
+
+		// warmer is called once per platform
+		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
 	}
 
 	// list of repositories with their tags
@@ -225,13 +230,8 @@ func (p *pluginImpl) Execute() error {
 		p.settings.Destinations[idx] = tag.Name()
 	}
 
-	// do not push yet if there are multiple platforms, we need to prepare the manifest first
-	p.settings.NoPush = true
-	replacer := strings.NewReplacer("/", "_")
-
 	for _, platform := range p.settings.Main.Platforms {
 		p.settings.CustomPlatform = platform
-		p.settings.TarPath = replacer.Replace(platform) + ".tar"
 
 		// kaniko is called once per platform
 		cmds = append(cmds, commandBuild(&p.settings)) // kaniko build
@@ -253,30 +253,6 @@ func (p *pluginImpl) Execute() error {
 		}
 	}
 
-	digestMap := make(map[string]string)
-
-	for _, platform := range p.settings.Main.Platforms {
-		tarPath := replacer.Replace(platform) + ".tar"
-
-		var (
-			digest   string
-			craneErr error
-		)
-
-		// push the tarball to the registry, once per platform
-		if p.settings.Main.IncludePlatformTags {
-			digest, craneErr = crane.Push(tarPath)
-		} else {
-			digest, craneErr = crane.Push(tarPath, crane.WithDigest())
-		}
-
-		if craneErr != nil {
-			return fmt.Errorf("failed to push %s tarball: %w", platform, craneErr)
-		}
-
-		digestMap[platform] = digest
-	}
-
 	cfg := manifest.Config{
 		Insecure: p.settings.Insecure,
 	}
@@ -293,17 +269,13 @@ func (p *pluginImpl) Execute() error {
 
 			OS, arch := platformParts[0], platformParts[1]
 
-			if digest, ok := digestMap[platform]; ok {
-				images = append(images, types.ManifestEntry{
-					Image: repoName + "@" + digest,
-					Platform: ocispec.Platform{
-						Architecture: arch,
-						OS:           OS,
-					},
-				})
-			} else {
-				return fmt.Errorf("failed to find digest for %s", platform)
-			}
+			images = append(images, types.ManifestEntry{
+				Image: repoName + ":" + tags[0] + "-" + arch,
+				Platform: ocispec.Platform{
+					Architecture: arch,
+					OS:           OS,
+				},
+			})
 		}
 
 		target := repoName + ":" + tags[0]
@@ -312,15 +284,6 @@ func (p *pluginImpl) Execute() error {
 		manifestErr := manifest.Push(target, tags[1:], images, cfg)
 		if manifestErr != nil {
 			return fmt.Errorf("failed to push manifest: %w", manifestErr)
-		}
-	}
-
-	if p.settings.Cleanup {
-		for _, platform := range p.settings.Main.Platforms {
-			tarPath := replacer.Replace(platform) + ".tar"
-			if err := os.Remove(tarPath); err != nil {
-				slog.Error("Failed to remove tarball", "tarball", tarPath, "error", err)
-			}
 		}
 	}
 
