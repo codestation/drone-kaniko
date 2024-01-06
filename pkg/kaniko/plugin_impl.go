@@ -203,11 +203,13 @@ func (p *pluginImpl) Execute() error {
 		return nil
 	}
 
-	for _, platform := range p.settings.Main.Platforms {
-		p.settings.CustomPlatform = platform
+	if len(p.settings.Main.Images) > 0 {
+		for _, platform := range p.settings.Main.Platforms {
+			p.settings.CustomPlatform = platform
 
-		// warmer is called once per platform
-		cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+			// warmer is called once per platform
+			cmds = append(cmds, commandWarmer(&p.settings)) // kaniko warmer
+		}
 	}
 
 	// list of repositories with their tags
@@ -261,13 +263,10 @@ func (p *pluginImpl) Execute() error {
 		var images []types.ManifestEntry
 
 		for _, platform := range p.settings.Main.Platforms {
-			platformParts := strings.Split(platform, "/")
-
-			if len(platformParts) != 2 {
+			OS, arch, found := strings.Cut(platform, "/")
+			if !found {
 				return fmt.Errorf("invalid platform: %s", platform)
 			}
-
-			OS, arch := platformParts[0], platformParts[1]
 
 			images = append(images, types.ManifestEntry{
 				Image: repoName + ":" + tags[0] + "-" + arch,
@@ -357,8 +356,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	}
 	for _, entry := range settings.Destinations {
 		if settings.Main.IncludePlatformTags {
-			platformParts := strings.Split(settings.CustomPlatform, "/")
-			arch := platformParts[1]
+			_, arch, _ := strings.Cut(settings.CustomPlatform, "/")
 			entry = entry + "-" + arch
 		}
 
