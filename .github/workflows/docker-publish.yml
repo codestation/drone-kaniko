@@ -2,7 +2,8 @@ name: Docker
 
 on:
   push:
-    branches: [ release ]
+    tags:
+      - '*'
 
 env:
   REGISTRY: ghcr.io
