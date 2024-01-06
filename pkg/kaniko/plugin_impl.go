@@ -93,21 +93,20 @@ type Auth struct {
 
 // Main args for the Plugin.
 type Main struct {
-	BuildArgsFromEnv    []string
-	Debug               bool
-	DryRun              bool
-	ForceCache          bool
-	Tags                []string
-	Platforms           []string
-	TagsAuto            bool
-	TagsSuffix          string
-	Images              []string
-	Repo                string
-	LabelSchema         []string
-	Mirror              string
-	PushTarget          bool
-	AutoLabel           bool
-	IncludePlatformTags bool
+	BuildArgsFromEnv []string
+	Debug            bool
+	DryRun           bool
+	ForceCache       bool
+	Tags             []string
+	Platforms        []string
+	TagsAuto         bool
+	TagsSuffix       string
+	Images           []string
+	Repo             string
+	LabelSchema      []string
+	Mirror           string
+	PushTarget       bool
+	AutoLabel        bool
 }
 
 type Manifest struct {
@@ -355,7 +354,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--custom-platform", settings.CustomPlatform)
 	}
 	for _, entry := range settings.Destinations {
-		if settings.Main.IncludePlatformTags {
+		if settings.CustomPlatform != "" && len(settings.Main.Platforms) > 0 {
 			_, arch, _ := strings.Cut(settings.CustomPlatform, "/")
 			entry = entry + "-" + arch
 		}
