@@ -35,6 +35,7 @@ func main() {
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
 		slog.Error("Kaniko plugin failed", "error", err)
+		os.Exit(1)
 	}
 }
 
