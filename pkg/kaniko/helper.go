@@ -10,10 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -148,17 +148,17 @@ func enableCompatibilityMode(settings *Settings, pipeline *drone.Pipeline) error
 		if settings.RegistryMirror != "" {
 			return errors.New("mirror and registry-mirror cannot be set at the same time")
 		}
-		re := regexp.MustCompile("^(http?)://(.*)")
-		matches := re.FindStringSubmatch(settings.Main.Mirror)
-		if len(matches) > 2 {
-			if matches[1] == "http" {
-				// mark as insecure
-				settings.InsecurePull = true
-			}
-			// remove scheme from url
-			settings.RegistryMirror = matches[2]
-		} else {
-			return fmt.Errorf("invalid mirror: %s", settings.Main.Mirror)
+
+		mirrorURL, err := url.Parse(settings.Main.Mirror)
+		if err != nil {
+			return fmt.Errorf("invalid mirror %s: %w", settings.Main.Mirror, err)
+		}
+
+		mirror := strings.TrimPrefix(mirrorURL.String(), mirrorURL.Scheme+"://")
+		settings.RegistryMirror = mirror
+
+		if mirrorURL.Scheme == "http" {
+			settings.InsecureRegistries = append(settings.InsecureRegistries, mirror)
 		}
 	}
 
