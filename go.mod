@@ -1,28 +1,28 @@
 module go.megpoid.dev/drone-kaniko
 
-go 1.21
+go 1.22
 
 require (
-	github.com/drone-plugins/drone-docker v0.0.0-20231026124935-939591f01828
+	github.com/drone-plugins/drone-docker v0.0.0-20240306095244-a807dc91eb40
 	github.com/drone-plugins/drone-plugin-lib v0.4.2
-	github.com/estesp/manifest-tool/v2 v2.1.5
-	github.com/google/go-containerregistry v0.17.0
-	github.com/opencontainers/image-spec v1.1.0-rc5
+	github.com/estesp/manifest-tool/v2 v2.1.6
+	github.com/google/go-containerregistry v0.19.1
+	github.com/opencontainers/image-spec v1.1.0
 	github.com/urfave/cli/v2 v2.27.1
 )
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
-	github.com/containerd/containerd v1.7.11 // indirect
+	github.com/containerd/containerd v1.7.14 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
-	github.com/docker/cli v24.0.7+incompatible // indirect
+	github.com/docker/cli v25.0.4+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v24.0.7+incompatible // indirect
+	github.com/docker/docker v25.0.4+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/drone/drone-go v1.7.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -45,8 +45,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
-	google.golang.org/grpc v1.60.1 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
-	oras.land/oras-go/v2 v2.3.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/grpc v1.62.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
+	oras.land/oras-go/v2 v2.4.0 // indirect
 )

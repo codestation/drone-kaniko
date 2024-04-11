@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS gcompat
+FROM golang:1.22-alpine AS gcompat
 
 RUN apk fetch --no-cache musl-obstack libucontext gcompat musl \
     && mkdir /gcompat \
@@ -10,6 +10,6 @@ RUN apk fetch --no-cache musl-obstack libucontext gcompat musl \
     && rm -rf /gcompat/.PKGINFO \
     && rm -rf /gcompat/.SIGN.RSA*
 
-FROM gcr.io/kaniko-project/executor:v1.19.2-debug
+FROM gcr.io/kaniko-project/executor:v1.22.0-debug
 
 COPY --from=gcompat /gcompat /
