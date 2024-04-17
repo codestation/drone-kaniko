@@ -26,61 +26,65 @@ const (
 
 // Settings for the Plugin.
 type Settings struct {
-	BuildArgs                   []string
-	Cache                       bool
-	CacheCopyLayers             bool
-	CacheDir                    string
-	CacheRepo                   string
-	CacheTTL                    time.Duration
-	Cleanup                     bool
-	CompressedCaching           bool
-	Compression                 string
-	CompressionLevel            int
-	Context                     string
-	ContextSubPath              string
-	CustomPlatform              string
-	Destinations                []string
-	DigestFile                  string
-	Dockerfile                  string
-	Force                       bool
-	ForceBuildMetadata          bool
-	Git                         string
-	IgnorePath                  []string
-	IgnoreVarRun                bool
-	ImageFsExtractRetry         int
-	ImageNameTagWithDigestFile  string
-	ImageNameWithDigestFile     string
-	Insecure                    bool
-	InsecurePull                bool
-	InsecureRegistries          []string
-	KanikoDir                   string
-	Labels                      []string
-	LogFormat                   string
-	LogTimestamp                bool
-	NoPush                      bool
-	NoPushCache                 bool
-	OCILayoutPath               string
-	PushRetry                   int
-	RegistryCertificates        []string
-	RegistryClientCerts         []string
-	RegistryMirror              string
-	Reproducible                bool
-	SingleSnapshot              bool
-	SkipDefaultRegistryFallback bool
-	SkipPushPermissionCheck     bool
-	SkipTLSVerify               bool
-	SkipTLSVerifyPull           bool
-	SkipTLSVerifyRegistries     []string
-	SkipUnusedStages            bool
-	SnapshotMode                string
-	TarPath                     string
-	Target                      string
-	UseNewRun                   bool
-	Verbosity                   string
-	Auth                        Auth
-	Main                        Main
-	Manifest                    Manifest
-	Extra                       Extra
+	BuildArgs                    []string
+	Cache                        bool
+	CacheCopyLayers              bool
+	CacheDir                     string
+	CacheRepo                    string
+	CacheRunLayers               bool
+	CacheTTL                     time.Duration
+	Cleanup                      bool
+	CompressedCaching            bool
+	Compression                  string
+	CompressionLevel             int
+	Context                      string
+	ContextSubPath               string
+	CustomPlatform               string
+	Destinations                 []string
+	DigestFile                   string
+	Dockerfile                   string
+	Force                        bool
+	ForceBuildMetadata           bool
+	Git                          string
+	IgnorePath                   []string
+	IgnoreVarRun                 bool
+	ImageDownloadRetry           int
+	ImageFsExtractRetry          int
+	ImageNameTagWithDigestFile   string
+	ImageNameWithDigestFile      string
+	Insecure                     bool
+	InsecurePull                 bool
+	InsecureRegistries           []string
+	KanikoDir                    string
+	Labels                       []string
+	LogFormat                    string
+	LogTimestamp                 bool
+	NoPush                       bool
+	NoPushCache                  bool
+	OCILayoutPath                string
+	PushIgnoreImmutableTagErrors bool
+	PushRetry                    int
+	RegistryCertificates         []string
+	RegistryClientCerts          []string
+	RegistryMap                  []string
+	RegistryMirror               string
+	Reproducible                 bool
+	SingleSnapshot               bool
+	SkipDefaultRegistryFallback  bool
+	SkipPushPermissionCheck      bool
+	SkipTLSVerify                bool
+	SkipTLSVerifyPull            bool
+	SkipTLSVerifyRegistries      []string
+	SkipUnusedStages             bool
+	SnapshotMode                 string
+	TarPath                      string
+	Target                       string
+	UseNewRun                    bool
+	Verbosity                    string
+	Auth                         Auth
+	Main                         Main
+	Manifest                     Manifest
+	Extra                        Extra
 }
 
 // Auth settings for the Plugin.
@@ -329,6 +333,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.CacheDir != "" {
 		args = append(args, "--cache-dir", settings.CacheDir)
 	}
+	if !settings.CacheRunLayers {
+		args = append(args, "--cache-run-layers", "false")
+	}
 	if settings.CacheTTL != 0 {
 		args = append(args, "--cache-ttl", settings.CacheTTL.String())
 	}
@@ -382,6 +389,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.IgnoreVarRun {
 		args = append(args, "--ignore-var-run")
 	}
+	if settings.ImageDownloadRetry > 0 {
+		args = append(args, "--image-download-retry", strconv.FormatInt(int64(settings.ImageDownloadRetry), 10))
+	}
 	if settings.ImageFsExtractRetry > 0 {
 		args = append(args, "--image-fs-extract-retry", strconv.FormatInt(int64(settings.ImageFsExtractRetry), 10))
 	}
@@ -421,6 +431,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	if settings.OCILayoutPath != "" {
 		args = append(args, "--oci-layout-path", settings.OCILayoutPath)
 	}
+	if settings.PushIgnoreImmutableTagErrors {
+		args = append(args, "--push-ignore-immutable-tag-errors")
+	}
 	if settings.PushRetry > 0 {
 		args = append(args, "--push-retry", strconv.FormatInt(int64(settings.PushRetry), 10))
 	}
@@ -429,6 +442,9 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	}
 	for _, entry := range settings.RegistryClientCerts {
 		args = append(args, "--registry-client-cert", entry)
+	}
+	for _, entry := range settings.RegistryMap {
+		args = append(args, "--registry-map", entry)
 	}
 	if settings.RegistryMirror != "" {
 		args = append(args, "--registry-mirror", settings.RegistryMirror)
