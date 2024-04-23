@@ -334,7 +334,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--cache-dir", settings.CacheDir)
 	}
 	if !settings.CacheRunLayers {
-		args = append(args, "--cache-run-layers", "false")
+		args = append(args, "--cache-run-layers=false")
 	}
 	if settings.CacheTTL != 0 {
 		args = append(args, "--cache-ttl", settings.CacheTTL.String())
@@ -343,7 +343,7 @@ func commandBuild(settings *Settings) *exec.Cmd {
 		args = append(args, "--cleanup")
 	}
 	if !settings.CompressedCaching {
-		args = append(args, "--compressed-caching", "false")
+		args = append(args, "--compressed-caching=false")
 	}
 	if settings.Compression != "" {
 		args = append(args, "--compression", settings.Compression)
@@ -386,8 +386,8 @@ func commandBuild(settings *Settings) *exec.Cmd {
 	for _, entry := range settings.IgnorePath {
 		args = append(args, "--ignore-path", entry)
 	}
-	if settings.IgnoreVarRun {
-		args = append(args, "--ignore-var-run")
+	if !settings.IgnoreVarRun {
+		args = append(args, "--ignore-var-run=false")
 	}
 	if settings.ImageDownloadRetry > 0 {
 		args = append(args, "--image-download-retry", strconv.FormatInt(int64(settings.ImageDownloadRetry), 10))
