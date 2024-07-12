@@ -10,6 +10,6 @@ RUN apk fetch --no-cache musl-obstack libucontext gcompat musl \
     && rm -rf /gcompat/.PKGINFO \
     && rm -rf /gcompat/.SIGN.RSA*
 
-FROM gcr.io/kaniko-project/executor:v1.22.0-debug
+FROM gcr.io/kaniko-project/executor:v1.23.2-debug
 
 COPY --from=gcompat /gcompat /

@@ -9,7 +9,7 @@ platform:
 
 steps:
   - name: lint
-    image: golangci/golangci-lint:v1.57.2
+    image: golangci/golangci-lint:v1.59.1
     commands:
       - golangci-lint run --no-config -v --timeout 10m ./...
 
@@ -17,7 +17,9 @@ steps:
     image: ghcr.io/codestation/drone-docker
     settings:
       repo: registry.megpoid.dev/codestation/drone-kaniko
-      tags: latest
+      tags:
+        - latest
+        - ${DRONE_TAG}
       registry: registry.megpoid.dev
       config:
         from_secret: registry_credentials
@@ -30,8 +32,9 @@ steps:
           from_secret: goproxy_url
     when:
       event:
-        - push
+        - tag
 
 trigger:
-  branch:
-    - master
+  event:
+    - push
+    - tag

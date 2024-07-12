@@ -505,6 +505,9 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	if settings.CustomPlatform != "" {
 		args = append(args, "--customPlatform", settings.CustomPlatform)
 	}
+	if settings.Dockerfile != "" {
+		args = append(args, "--dockerfile", settings.Dockerfile)
+	}
 	if settings.Main.ForceCache {
 		args = append(args, "--force")
 	}
@@ -525,6 +528,12 @@ func commandWarmer(settings *Settings) *exec.Cmd {
 	}
 	for _, entry := range settings.RegistryCertificates {
 		args = append(args, "--registry-certificate", entry)
+	}
+	for _, entry := range settings.RegistryClientCerts {
+		args = append(args, "--registry-client-cert", entry)
+	}
+	for _, entry := range settings.RegistryMap {
+		args = append(args, "--registry-map", entry)
 	}
 	if settings.RegistryMirror != "" {
 		args = append(args, "--registry-mirror", settings.RegistryMirror)
